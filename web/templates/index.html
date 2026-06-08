@@ -109,7 +109,7 @@ async function refresh() {
     const soldEl = document.getElementById('recent-sold');
     soldEl.innerHTML = d.recent_sold.length
       ? d.recent_sold.map(t =>
-          `<li class="flex items-center gap-2"><span>${t.flag}</span><span class="text-gray-300 flex-1 truncate">${t.name}</span><span class="text-gray-500">@${t.buyer}</span><span class="text-gray-100 font-bold ml-2">$${(t.price||0).toLocaleString()}</span></li>`).join('')
+          `<li class="flex items-center gap-2"><span>${t.flag}</span><span class="text-gray-300 flex-1 truncate">${t.name}</span><span class="text-gray-500">${t.buyer}</span><span class="text-gray-100 font-bold ml-2">$${(t.price||0).toLocaleString()}</span></li>`).join('')
       : '<li class="text-gray-600 text-xs">Nothing sold yet</li>';
 
   } catch(e) {

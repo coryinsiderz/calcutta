@@ -157,7 +157,7 @@ def build_info_text() -> str:
     for r in rows:
         price = r["sold_price"] or 0
         owner = r["sold_to_username"] or "?"
-        lines.append(f"{r['flag']} {r['name']} - ${price:,} @{owner}")
+        lines.append(f"{r['flag']} {r['name']} - ${price:,} ({owner})")
     return "\n".join(lines)
 
 

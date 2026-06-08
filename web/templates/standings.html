@@ -37,7 +37,7 @@
         <tbody>
           {% for o in data.leaderboard %}
           <tr class="border-b border-gray-800/40 align-top">
-            <td class="py-2 pr-2 font-bold text-white">@{{ o.owner }}</td>
+            <td class="py-2 pr-2 font-bold text-white">{{ o.owner }}</td>
             <td class="py-2 pr-2 text-gray-400">
               {% for t in o.teams %}<span title="{{ t.name }} — {{ t.stage_label }} — ${{ '{:,}'.format(t.payout) }}">{{ t.flag }}</span>{% endfor %}
             </td>
@@ -76,7 +76,7 @@
             <td class="py-2 pr-2 whitespace-nowrap">{{ t.flag }} {{ t.name }}
               {% if t.side_awards %}<span class="text-gray-400 text-xs">*</span>{% endif %}
             </td>
-            <td class="py-2 pr-2 text-gray-400">{{ ('@' ~ t.owner) if t.owner else '—' }}</td>
+            <td class="py-2 pr-2 text-gray-400">{{ t.owner if t.owner else '—' }}</td>
             <td class="py-2 pr-2 text-gray-400">{{ t.stage_label }}{{ ' (won group)' if t.won_group }}</td>
             <td class="py-2 pr-2 text-right text-gray-300">{{ ('$' ~ '{:,}'.format(t.price)) if t.status == 'sold' else '—' }}</td>
             <td class="py-2 text-right font-bold {{ 'text-gray-100' if t.payout else 'text-gray-600' }}">

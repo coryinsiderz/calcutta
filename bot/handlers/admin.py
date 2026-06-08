@@ -172,10 +172,11 @@ async def cmd_unfreeze(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # ── Registration ──────────────────────────────────────────────────────────────
 
 async def cmd_register(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Anyone can register their name. Usage: /register <name>"""
-    name = " ".join(context.args).strip()
+    """Anyone can register their name. Usage: /register YourName"""
+    # Strip stray wrapping chars (e.g. someone typing the literal <...> from a hint)
+    name = " ".join(context.args).strip().strip("<>\"'@ ").strip()
     if not name:
-        await update.message.reply_text("Usage: /register <name>   e.g. /register Cory")
+        await update.message.reply_text("Usage: /register YourName   (e.g. /register Cory)")
         return
     if len(name) > 40:
         await update.message.reply_text("Name too long (max 40 chars).")
@@ -226,13 +227,27 @@ _NAME_CUTOFF = 0.72  # fuzzy threshold for player typos (names are short)
 
 
 def _best_participant(name: str, people: list[dict]):
-    """Match an owner name to a registered participant (exact -> fuzzy)."""
+    """Match an owner name to a registered participant: exact -> word/substring
+    (so "paddy" finds "Paddy's Pub") -> fuzzy. Ambiguous -> None."""
     q = _norm(name)
     if not q:
         return None
+    # exact
     for p in people:
         if _norm(p["name"]) == q:
             return p
+    # word / substring match
+    subs = []
+    for p in people:
+        pn = _norm(p["name"])
+        words = pn.replace("'", " ").split()
+        if q in pn or any(w == q or w.startswith(q) for w in words):
+            subs.append(p)
+    if len(subs) == 1:
+        return subs[0]
+    if len(subs) > 1:
+        return None
+    # fuzzy
     norm_map = {_norm(p["name"]): p for p in people}
     m = difflib.get_close_matches(q, list(norm_map), n=1, cutoff=_NAME_CUTOFF)
     return norm_map[m[0]] if m else None
@@ -385,7 +400,7 @@ async def cmd_sold(update: Update, context: ContextTypes.DEFAULT_TYPE):
     info = await asyncio.to_thread(build_info_text)
     verb = "Updated" if already else "Sold"
     await update.message.reply_text(
-        f"{verb}: {team['flag']} {team['name']} -> @{owner} for ${price:,}\n\n{info}"
+        f"{verb}: {team['flag']} {team['name']} -> {owner} for ${price:,}\n\n{info}"
     )
 
 

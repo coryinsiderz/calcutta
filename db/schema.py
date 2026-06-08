@@ -167,6 +167,23 @@ def seed_defaults():
             "UPDATE auction_config SET msg_going_twice = %s WHERE msg_going_twice = %s",
             ("TWICE", "Going twice... {team} to {bidder} for ${amount}"),
         )
+
+        # Clean stray wrapping chars from participant names (e.g. "<Paddy's Pub>")
+        with conn.cursor() as cur:
+            cur.execute("SELECT id, name FROM participants")
+            rows = cur.fetchall()
+        for pid, pname in rows:
+            clean = pname.strip("<>\"'@ ").strip()
+            if clean and clean != pname:
+                dup = conn.execute(
+                    "SELECT 1 FROM participants WHERE name_lower = %s AND id <> %s",
+                    (clean.lower(), pid),
+                ).fetchone()
+                if not dup:
+                    conn.execute(
+                        "UPDATE participants SET name = %s, name_lower = %s WHERE id = %s",
+                        (clean, clean.lower(), pid),
+                    )
         conn.execute(
             "INSERT INTO auction_state (id) VALUES (1) ON CONFLICT (id) DO NOTHING"
         )
