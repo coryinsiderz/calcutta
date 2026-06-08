@@ -11,7 +11,7 @@ def _get_pool() -> ConnectionPool:
         _pool = ConnectionPool(
             conninfo=os.environ["DATABASE_URL"],
             min_size=1,
-            max_size=5,
+            max_size=10,
         )
     return _pool
 

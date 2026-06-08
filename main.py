@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import os
+import threading
 
 from dotenv import load_dotenv
 
@@ -12,6 +13,7 @@ import db.queries as queries
 from bot.engine import AuctionEngine
 from bot.handlers import admin, auction, general
 from db import schema
+from web.app import create_app
 
 logging.basicConfig(
     level=logging.INFO,
@@ -33,9 +35,23 @@ async def _override_poller(engine: AuctionEngine):
         await asyncio.sleep(2)
 
 
+def _run_web():
+    """Serve the Flask web panel in a background thread (waitress, production WSGI)."""
+    from waitress import serve
+
+    logging.getLogger("waitress").setLevel(logging.WARNING)
+    port = int(os.environ.get("PORT", 8080))
+    web_app = create_app()
+    logger.info("Starting web panel on 0.0.0.0:%s", port)
+    serve(web_app, host="0.0.0.0", port=port, threads=8)
+
+
 def main():
     schema.apply_schema()
     schema.seed_defaults()
+
+    # Web panel runs in a daemon thread; the bot owns the main thread (signals).
+    threading.Thread(target=_run_web, daemon=True, name="web").start()
 
     engine = AuctionEngine()
     engine.load_from_db()
