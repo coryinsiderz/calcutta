@@ -27,12 +27,8 @@ async def cmd_bid(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if not accepted:
         await update.message.reply_text(f"Bid rejected: {reason}")
-    else:
-        # Silently delete the /bid command message to keep chat clean
-        try:
-            await update.message.delete()
-        except Exception:
-            pass
+    # On accept, the engine posts the "💰 $X — @user" confirmation; the /bid
+    # message is left in place (bot never deletes messages).
 
 
 async def bid_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
