@@ -141,22 +141,21 @@ def compute_standings() -> dict:
 
 
 def build_info_text() -> str:
-    """Plain-text pot + per-owner summary for Telegram (no markdown — usernames
-    may contain underscores, which would break Telegram markdown)."""
-    data = compute_standings()
-    pot = data["pot"]
-    lb = data["leaderboard"]
-    sold = sum(1 for t in data["teams"] if t["status"] == "sold")
+    """Plain-text pot + sold-team list for Telegram (no markdown — usernames may
+    contain underscores, which would break Telegram markdown). One line per sold
+    team in sold order: "<flag> <name> - $<price> @<owner>"."""
+    with get_conn() as conn:
+        with conn.cursor(row_factory=dict_row) as cur:
+            cur.execute(
+                """SELECT name, flag, sold_to_username, sold_price
+                   FROM teams WHERE status = 'sold' ORDER BY sold_at"""
+            )
+            rows = cur.fetchall()
 
-    lines = [f"Pot: ${pot:,}  ·  {sold}/48 sold"]
-    if lb:
-        has_winnings = any(o["won"] for o in lb)
-        lines.append("")
-        for o in sorted(lb, key=lambda x: x["spent"], reverse=True):
-            n = len(o["teams"])
-            line = f"@{o['owner']}: {n} team{'s' if n != 1 else ''}, spent ${o['spent']:,}"
-            if has_winnings:
-                sign = "+" if o["net"] >= 0 else "-"
-                line += f", won ${o['won']:,}, net {sign}${abs(o['net']):,}"
-            lines.append(line)
+    pot = sum((r["sold_price"] or 0) for r in rows)
+    lines = [f"Pot: ${pot:,}  ·  {len(rows)}/48 sold"]
+    for r in rows:
+        price = r["sold_price"] or 0
+        owner = r["sold_to_username"] or "?"
+        lines.append(f"{r['flag']} {r['name']} - ${price:,} @{owner}")
     return "\n".join(lines)
