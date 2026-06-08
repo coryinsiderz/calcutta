@@ -77,7 +77,7 @@ class AuctionEngine:
                 f"Bot restarted — resuming auction.\n\n"
                 f"{team['flag']} {team['name'].upper()}\n"
                 + (
-                    f"Current high: ${self.high_bid:,} — @{self.high_bidder_username}"
+                    f"Current high: ${self.high_bid:,} — {self.high_bidder_username}"
                     if self.high_bid
                     else f"Opening bid: /bid <amount> (min ${self.config.get('opening_floor', 1)})"
                 ),
@@ -86,7 +86,7 @@ class AuctionEngine:
                 keyboard = build_bid_keyboard(self.high_bid, team["id"], self.increment_bands)
                 msg = await self.bot.send_message(
                     self.chat_id,
-                    f"${self.high_bid:,} — @{self.high_bidder_username}",
+                    f"${self.high_bid:,} — {self.high_bidder_username}",
                     reply_markup=keyboard,
                 )
                 self.bid_message_id = msg.message_id
@@ -226,10 +226,14 @@ class AuctionEngine:
         if user_id == self.high_bidder_user_id:
             return await reject("You already hold the high bid!")
 
+        # Always display the registered name if this bidder has one
+        reg = await asyncio.to_thread(queries.find_participant_by_user_id, user_id)
+        display = reg["name"] if reg else username
+
         # Accept
         self.high_bid = amount
         self.high_bidder_user_id = user_id
-        self.high_bidder_username = username
+        self.high_bidder_username = display
         self.silence_phase = "none"
 
         self.timer.reset()
@@ -238,14 +242,14 @@ class AuctionEngine:
             queries.accept_bid_state,
             self.current_team["id"],
             user_id,
-            username,
+            display,
             amount,
         )
 
         keyboard = build_bid_keyboard(amount, self.current_team["id"], self.increment_bands)
         msg = await self.bot.send_message(
             self.chat_id,
-            f"${amount:,} — @{username}",
+            f"${amount:,} — {display}",
             reply_markup=keyboard,
         )
         self.bid_message_id = msg.message_id
@@ -276,7 +280,7 @@ class AuctionEngine:
                 await self.bot.edit_message_text(
                     chat_id=self.chat_id,
                     message_id=self.bid_message_id,
-                    text=f"${self.high_bid:,} — @{self.high_bidder_username}\n\n{text}",
+                    text=f"${self.high_bid:,} — {self.high_bidder_username}\n\n{text}",
                     reply_markup=keyboard,
                 )
                 return
@@ -302,7 +306,7 @@ class AuctionEngine:
                 await self.bot.edit_message_text(
                     chat_id=self.chat_id,
                     message_id=self.bid_message_id,
-                    text=f"${self.high_bid:,} — @{self.high_bidder_username}\n\n{text}",
+                    text=f"${self.high_bid:,} — {self.high_bidder_username}\n\n{text}",
                     reply_markup=keyboard,
                 )
                 return
@@ -461,7 +465,7 @@ class AuctionEngine:
                         self.timer.reset()
                     if self.chat_id:
                         await self.bot.send_message(
-                            self.chat_id, f"Admin set high bid: ${amount:,} — @{bidder}"
+                            self.chat_id, f"Admin set high bid: ${amount:,} — {bidder}"
                         )
 
             elif action == "reload_state":

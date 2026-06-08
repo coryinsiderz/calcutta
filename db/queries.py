@@ -314,6 +314,15 @@ def find_participant(name: str) -> dict | None:
             return cur.fetchone()
 
 
+def find_participant_by_user_id(user_id: int) -> dict | None:
+    with get_conn() as conn:
+        with conn.cursor(row_factory=dict_row) as cur:
+            cur.execute(
+                "SELECT * FROM participants WHERE telegram_user_id = %s LIMIT 1", (user_id,)
+            )
+            return cur.fetchone()
+
+
 def unregister_participant(name: str) -> bool:
     with get_conn() as conn:
         cur = conn.execute(
