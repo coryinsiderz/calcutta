@@ -5,6 +5,7 @@ from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes
 
 import db.queries as queries
+from db.payouts import build_info_text
 
 logger = logging.getLogger(__name__)
 
@@ -160,6 +161,66 @@ async def cmd_unfreeze(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Auction unfrozen. /reset is enabled again.")
 
 
+# ── /sold (manual logging for a human-run auction) ────────────────────────────
+
+async def cmd_sold(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Log a sale when a human is auctioneering.
+    Usage: /sold <team>, <owner>, <price>   e.g. /sold Brazil, dave, 120"""
+    if not await _require_admin(update, context):
+        return
+
+    raw = " ".join(context.args)
+    parts = [p.strip() for p in raw.split(",")]
+    if len(parts) != 3 or not parts[0] or not parts[1] or not parts[2]:
+        await update.message.reply_text(
+            "Usage: /sold <team>, <owner>, <price>\ne.g. /sold Brazil, dave, 120"
+        )
+        return
+
+    team_q, owner, price_s = parts
+    owner = owner.lstrip("@")
+    price_clean = price_s.lstrip("$").replace(",", "")
+    if not price_clean.isdigit():
+        await update.message.reply_text("Price must be a number, e.g. /sold Brazil, dave, 120")
+        return
+    price = int(price_clean)
+
+    teams = await asyncio.to_thread(queries.get_all_teams)
+    ql = team_q.lower()
+    exact = [t for t in teams if t["name"].lower() == ql]
+    matches = exact or [t for t in teams if ql in t["name"].lower()]
+
+    if not matches:
+        await update.message.reply_text(f"No team matches '{team_q}'.")
+        return
+    if len(matches) > 1:
+        names = ", ".join(t["name"] for t in matches[:8])
+        await update.message.reply_text(f"'{team_q}' matches multiple: {names}. Be more specific.")
+        return
+
+    team = matches[0]
+    already = team["status"] == "sold"
+    await asyncio.to_thread(queries.mark_team_sold, team["id"], 0, owner, price)
+
+    info = await asyncio.to_thread(build_info_text)
+    verb = "Updated" if already else "Sold"
+    await update.message.reply_text(
+        f"{verb}: {team['flag']} {team['name']} -> @{owner} for ${price:,}\n\n{info}"
+    )
+
+
+async def cmd_remaining(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """List teams not yet sold."""
+    teams = await asyncio.to_thread(queries.get_all_teams)
+    pending = [t for t in teams if t["status"] != "sold"]
+    if not pending:
+        await update.message.reply_text("All 48 teams are sold.")
+        return
+    lines = [f"{len(pending)} teams left:"]
+    lines += [f"{t['flag']} {t['name']}" for t in pending]
+    await update.message.reply_text("\n".join(lines))
+
+
 # ── /shuffle ──────────────────────────────────────────────────────────────────
 
 async def cmd_shuffle(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -227,6 +288,8 @@ def register(app: Application, admin_ids: list[int]):
     app.add_handler(CommandHandler("undo", cmd_undo))
     app.add_handler(CommandHandler("correct", cmd_correct))
     app.add_handler(CommandHandler("shuffle", cmd_shuffle))
+    app.add_handler(CommandHandler("sold", cmd_sold))
+    app.add_handler(CommandHandler("remaining", cmd_remaining))
     app.add_handler(CommandHandler("reset", cmd_reset))
     app.add_handler(CommandHandler("freeze", cmd_freeze))
     app.add_handler(CommandHandler("unfreeze", cmd_unfreeze))
