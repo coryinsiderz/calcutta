@@ -4,10 +4,16 @@ from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes
 
 import db.queries as queries
+from db.payouts import build_info_text
 
 
 async def ping(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("pong")
+
+
+async def info(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    text = await asyncio.to_thread(build_info_text)
+    await update.message.reply_text(text)
 
 
 async def results(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -30,4 +36,5 @@ async def results(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 def register(app: Application):
     app.add_handler(CommandHandler("ping", ping))
+    app.add_handler(CommandHandler("info", info))
     app.add_handler(CommandHandler("results", results))

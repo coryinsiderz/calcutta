@@ -138,3 +138,25 @@ def compute_standings() -> dict:
         "side_awards": side_summary,
         "total_paid_rate": total_paid_rate,
     }
+
+
+def build_info_text() -> str:
+    """Plain-text pot + per-owner summary for Telegram (no markdown — usernames
+    may contain underscores, which would break Telegram markdown)."""
+    data = compute_standings()
+    pot = data["pot"]
+    lb = data["leaderboard"]
+    sold = sum(1 for t in data["teams"] if t["status"] == "sold")
+
+    lines = [f"🏆 Pot: ${pot:,}  ·  {sold}/48 sold"]
+    if lb:
+        has_winnings = any(o["won"] for o in lb)
+        lines.append("")
+        for o in sorted(lb, key=lambda x: x["spent"], reverse=True):
+            n = len(o["teams"])
+            line = f"@{o['owner']}: {n} team{'s' if n != 1 else ''}, spent ${o['spent']:,}"
+            if has_winnings:
+                sign = "+" if o["net"] >= 0 else "-"
+                line += f", won ${o['won']:,}, net {sign}${abs(o['net']):,}"
+            lines.append(line)
+    return "\n".join(lines)

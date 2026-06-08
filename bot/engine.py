@@ -6,6 +6,7 @@ from telegram import Bot, InlineKeyboardMarkup
 import db.queries as queries
 from bot.keyboards import build_bid_keyboard
 from bot.timer import SilenceTimer
+from db.payouts import build_info_text
 
 logger = logging.getLogger(__name__)
 
@@ -375,6 +376,13 @@ class AuctionEngine:
 
         sold = await asyncio.to_thread(queries.count_sold_teams)
         total = sold + await asyncio.to_thread(queries.count_pending_teams) + 1
+
+        # Post the running info (pot + per-owner spend) before each reveal
+        try:
+            info_text = await asyncio.to_thread(build_info_text)
+            await self.bot.send_message(self.chat_id, info_text)
+        except Exception:
+            logger.exception("Failed to post info before team reveal")
 
         await self.bot.send_message(
             self.chat_id,
