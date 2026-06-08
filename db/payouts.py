@@ -159,3 +159,30 @@ def build_info_text() -> str:
         owner = r["sold_to_username"] or "?"
         lines.append(f"{r['flag']} {r['name']} - ${price:,} @{owner}")
     return "\n".join(lines)
+
+
+def build_standings_text() -> str:
+    """Per-owner leaderboard for Telegram: spent during the auction, spent/won/net
+    once tournament results are in. Plain text (no markdown)."""
+    data = compute_standings()
+    pot = data["pot"]
+    lb = data["leaderboard"]
+    if not lb:
+        return f"Standings  ·  Pot ${pot:,}\nNo teams sold yet."
+
+    has_winnings = any(o["won"] for o in lb)
+    rows = sorted(lb, key=lambda o: (o["net"] if has_winnings else o["spent"]), reverse=True)
+
+    lines = [f"Standings  ·  Pot ${pot:,}"]
+    for i, o in enumerate(rows, 1):
+        n = len(o["teams"])
+        teams = f"{n} team{'s' if n != 1 else ''}"
+        if has_winnings:
+            sign = "+" if o["net"] >= 0 else "-"
+            lines.append(
+                f"{i}. {o['owner']} — net {sign}${abs(o['net']):,} "
+                f"(won ${o['won']:,}, spent ${o['spent']:,}, {teams})"
+            )
+        else:
+            lines.append(f"{i}. {o['owner']} — spent ${o['spent']:,} ({teams})")
+    return "\n".join(lines)
