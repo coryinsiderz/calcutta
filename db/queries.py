@@ -253,14 +253,45 @@ def admin_update_team(team_id: int, name: str, status: str, owner: str | None, p
             )
 
 
+def set_team_progress(team_id: int, ko_stage: int, won_group: bool):
+    with get_conn() as conn:
+        conn.execute(
+            "UPDATE teams SET ko_stage = %s, won_group = %s WHERE id = %s",
+            (ko_stage, won_group, team_id),
+        )
+
+
+def get_side_awards() -> list[dict]:
+    with get_conn() as conn:
+        with conn.cursor(row_factory=dict_row) as cur:
+            cur.execute("SELECT * FROM side_awards ORDER BY sort")
+            return cur.fetchall()
+
+
+def set_side_award_team(key: str, team_id: int | None):
+    with get_conn() as conn:
+        conn.execute(
+            "UPDATE side_awards SET team_id = %s WHERE key = %s", (team_id, key)
+        )
+
+
+def get_payout_rules() -> list[dict]:
+    with get_conn() as conn:
+        with conn.cursor(row_factory=dict_row) as cur:
+            cur.execute("SELECT * FROM payout_rules ORDER BY sort")
+            return cur.fetchall()
+
+
 def reset_auction():
     """Wipe all bids and sales, reset state to idle, reshuffle the draw order."""
     with get_conn() as conn:
         conn.execute("DELETE FROM bids")
         conn.execute(
             """UPDATE teams SET status = 'pending', sold_to_user_id = NULL,
-               sold_to_username = NULL, sold_price = NULL, sold_at = NULL"""
+               sold_to_username = NULL, sold_price = NULL, sold_at = NULL,
+               ko_stage = 0, won_group = false"""
         )
+        conn.execute("UPDATE side_awards SET team_id = NULL")
         conn.execute(
             """UPDATE auction_state SET status = 'idle', current_team_id = NULL,
                high_bid = NULL, high_bidder_user_id = NULL, high_bidder_username = NULL,

@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+{% block title %}Tournament{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto space-y-6">
+  <h1 class="text-xl font-bold text-green-400">Tournament Tracking</h1>
+  <div id="msg" class="hidden rounded px-4 py-2 text-sm"></div>
+
+  <p class="text-gray-500 text-sm">
+    Set each team's furthest stage and tick "won group" if it finished 1st. Changes save automatically and flow straight to
+    <a href="/standings" class="text-green-400 underline">Standings</a>. Payouts are cumulative — a team banks every rung it clears.
+  </p>
+
+  <!-- Side categories -->
+  <section class="bg-gray-900 border border-gray-700 rounded-xl p-5">
+    <h2 class="text-gray-400 text-xs uppercase tracking-widest mb-3">Side Categories</h2>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+      {% for s in side_awards %}
+      <label class="flex items-center gap-2 text-sm">
+        <span class="text-gray-300 flex-1">{{ s.label }} <span class="text-gray-600">({{ "%.1f"|format(s.rate * 100) }}%)</span></span>
+        <select data-key="{{ s.key }}" onchange="saveSide(this)"
+                class="side-sel bg-gray-800 border border-gray-700 rounded px-2 py-1 text-white focus:outline-none focus:border-green-500 w-40">
+          <option value="">— none —</option>
+          {% for t in all_teams %}
+          <option value="{{ t.id }}" {% if s.team_id == t.id %}selected{% endif %}>{{ t.flag }} {{ t.name }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      {% endfor %}
+    </div>
+  </section>
+
+  <!-- Per-team progress -->
+  <section class="bg-gray-900 border border-gray-700 rounded-xl p-5">
+    <h2 class="text-gray-400 text-xs uppercase tracking-widest mb-3">Team Progress</h2>
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="text-gray-500 text-xs uppercase text-left border-b border-gray-800">
+            <th class="pb-2 pr-2">Team</th>
+            <th class="pb-2 pr-2">Owner</th>
+            <th class="pb-2 pr-2">Stage reached</th>
+            <th class="pb-2 pr-2 text-center">Won group</th>
+            <th class="pb-2"></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for t in all_teams %}
+          <tr class="prog-row border-b border-gray-800/40" data-id="{{ t.id }}">
+            <td class="py-1 pr-2 whitespace-nowrap">{{ t.flag }} {{ t.name }}</td>
+            <td class="py-1 pr-2 text-gray-500">{{ ('@' ~ t.sold_to_username) if t.sold_to_username else '—' }}</td>
+            <td class="py-1 pr-2">
+              <select class="p-stage bg-gray-800 border border-gray-700 rounded px-2 py-1 text-white focus:outline-none focus:border-green-500" onchange="saveProg(this)">
+                {% set stages = [(0,'Group stage'),(1,'Qualified (R32)'),(2,'Round of 16'),(3,'Quarterfinal'),(4,'Semifinal'),(5,'Final'),(6,'Champion')] %}
+                {% for val, lbl in stages %}
+                <option value="{{ val }}" {% if t.ko_stage == val %}selected{% endif %}>{{ lbl }}</option>
+                {% endfor %}
+              </select>
+            </td>
+            <td class="py-1 pr-2 text-center">
+              <input type="checkbox" class="p-wg w-4 h-4 accent-green-500" {% if t.won_group %}checked{% endif %} onchange="saveProg(this)">
+            </td>
+            <td class="py-1 text-xs text-gray-600 prog-status"></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+</div>
+
+<script>
+function showMsg(text, ok=true) {
+  const el = document.getElementById('msg');
+  el.textContent = text;
+  el.className = `rounded px-4 py-2 text-sm ${ok ? 'bg-green-900 border border-green-600 text-green-300' : 'bg-red-900 border border-red-600 text-red-300'}`;
+  el.classList.remove('hidden');
+  setTimeout(() => el.classList.add('hidden'), 3000);
+}
+
+async function saveProg(el) {
+  const row = el.closest('tr');
+  const id = row.dataset.id;
+  const ko_stage = parseInt(row.querySelector('.p-stage').value, 10);
+  const won_group = row.querySelector('.p-wg').checked;
+  const status = row.querySelector('.prog-status');
+  status.textContent = 'saving…';
+  try {
+    const r = await fetch('/api/admin/progress', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ team_id: parseInt(id), ko_stage, won_group }),
+    });
+    const d = await r.json();
+    if (d.ok) { status.textContent = '✓'; setTimeout(() => status.textContent = '', 1500); }
+    else { status.textContent = ''; showMsg(d.error || 'Failed', false); }
+  } catch(e) { status.textContent = ''; showMsg(String(e), false); }
+}
+
+async function saveSide(sel) {
+  const key = sel.dataset.key;
+  const team_id = sel.value || null;
+  try {
+    const r = await fetch('/api/admin/side_award', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ key, team_id }),
+    });
+    const d = await r.json();
+    if (d.ok) showMsg('Saved.');
+    else showMsg(d.error || 'Failed', false);
+  } catch(e) { showMsg(String(e), false); }
+}
+</script>
+{% endblock %}

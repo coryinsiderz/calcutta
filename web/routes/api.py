@@ -3,6 +3,7 @@ import json
 from flask import Blueprint, jsonify, request
 
 import db.queries as queries
+from db.payouts import compute_standings
 
 api_bp = Blueprint("api", __name__)
 
@@ -12,6 +13,11 @@ def state():
     data = queries.get_live_state()
     # Convert any non-serialisable types
     return jsonify(data)
+
+
+@api_bp.route("/standings")
+def standings():
+    return jsonify(compute_standings())
 
 
 @api_bp.route("/results")
@@ -104,6 +110,37 @@ def update_team(team_id):
 
     queries.admin_update_team(team_id, name, status, owner, price)
     queries.queue_override("reload_state")
+    return jsonify({"ok": True})
+
+
+@api_bp.route("/admin/progress", methods=["POST"])
+def progress():
+    """Set a team's tournament progress (ko_stage + won_group)."""
+    data = request.get_json(force=True)
+    team_id = data.get("team_id")
+    try:
+        ko_stage = int(data.get("ko_stage"))
+    except (ValueError, TypeError):
+        return jsonify({"ok": False, "error": "ko_stage must be a number"}), 400
+    if not team_id:
+        return jsonify({"ok": False, "error": "team_id required"}), 400
+    if ko_stage < 0 or ko_stage > 6:
+        return jsonify({"ok": False, "error": "ko_stage must be 0-6"}), 400
+    won_group = bool(data.get("won_group"))
+    queries.set_team_progress(int(team_id), ko_stage, won_group)
+    return jsonify({"ok": True})
+
+
+@api_bp.route("/admin/side_award", methods=["POST"])
+def side_award():
+    """Assign (or clear) the winning team for a side category."""
+    data = request.get_json(force=True)
+    key = data.get("key")
+    team_id = data.get("team_id")
+    if not key:
+        return jsonify({"ok": False, "error": "key required"}), 400
+    team_id = int(team_id) if team_id not in (None, "", "0", 0) else None
+    queries.set_side_award_team(key, team_id)
     return jsonify({"ok": True})
 
 

@@ -4,6 +4,7 @@ from functools import wraps
 from flask import Blueprint, Response, render_template, request
 
 import db.queries as queries
+from db.payouts import compute_standings
 
 pages_bp = Blueprint("pages", __name__)
 
@@ -26,6 +27,28 @@ def require_auth(f):
 @pages_bp.route("/")
 def index():
     return render_template("index.html")
+
+
+@pages_bp.route("/standings")
+def standings_page():
+    return render_template("standings.html", data=compute_standings())
+
+
+@pages_bp.route("/tournament")
+@require_auth
+def tournament_page():
+    all_teams = queries.get_all_teams()
+    side_awards = queries.get_side_awards()
+    rules = queries.get_payout_rules()
+    # sold teams only are eligible to be assigned side awards / tracked meaningfully
+    sold_teams = [t for t in all_teams if t["status"] == "sold"]
+    return render_template(
+        "tournament.html",
+        all_teams=all_teams,
+        sold_teams=sold_teams,
+        side_awards=side_awards,
+        rules=rules,
+    )
 
 
 @pages_bp.route("/config")

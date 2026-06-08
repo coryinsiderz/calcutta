@@ -74,7 +74,53 @@ CREATE TABLE IF NOT EXISTS pending_overrides (
     applied_at TIMESTAMPTZ,
     applied    BOOLEAN NOT NULL DEFAULT false
 );
+
+-- Tournament tracking (added to teams for existing DBs via ALTER below)
+ALTER TABLE teams ADD COLUMN IF NOT EXISTS ko_stage  INT     NOT NULL DEFAULT 0;
+ALTER TABLE teams ADD COLUMN IF NOT EXISTS won_group BOOLEAN NOT NULL DEFAULT false;
+
+CREATE TABLE IF NOT EXISTS payout_rules (
+    key   TEXT PRIMARY KEY,
+    label TEXT NOT NULL,
+    rate  NUMERIC NOT NULL,
+    sort  INT NOT NULL DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS side_awards (
+    key     TEXT PRIMARY KEY,
+    label   TEXT NOT NULL,
+    rate    NUMERIC NOT NULL,
+    team_id INT REFERENCES teams(id),
+    sort    INT NOT NULL DEFAULT 0
+);
 """
+
+# ko_stage scale:
+#   0 = eliminated in group     1 = qualified (R32), lost in R32
+#   2 = reached R16             3 = reached QF
+#   4 = reached SF             5 = reached final (runner-up)
+#   6 = champion
+
+_PAYOUT_RULES = [
+    ("qualify_other", "Qualified (2nd/3rd)",  0.005, 1),
+    ("win_group",     "Won group",            0.01,  2),
+    ("reach_r16",     "Reached R16",          0.005, 3),
+    ("reach_qf",      "Reached QF",           0.015, 4),
+    ("reach_sf",      "Reached SF",           0.03,  5),
+    ("reach_final",   "Reached final",        0.07,  6),
+    ("champion",      "Champion",             0.16,  7),
+]
+
+_SIDE_AWARDS = [
+    ("third_place",       "3rd place (playoff winner)",                  0.02, 1),
+    ("least_goals",       "Least goals scored (group)",                  0.03, 2),
+    ("worst_gd",          "Worst goal differential (group)",             0.03, 3),
+    ("most_goals",        "Most goals scored (group)",                   0.02, 4),
+    ("top_fifa_ko",       "Highest FIFA rank to qualify for KO",         0.02, 5),
+    ("least_conceded_ko", "Least conceded, KO qualifiers (excl. PKs)",   0.02, 6),
+    ("most_conceded",     "Most conceded, full tournament",              0.01, 7),
+    ("most_reds",         "Most red cards (tournament)",                 0.01, 8),
+]
 
 
 def apply_schema():
@@ -112,5 +158,23 @@ def seed_defaults():
                     [(t["name"], t["flag"], pos) for t, pos in zip(TEAMS, positions)],
                 )
             logger.info("Seeded %d teams", len(TEAMS))
+
+        count = conn.execute("SELECT COUNT(*) FROM payout_rules").fetchone()[0]
+        if count == 0:
+            with conn.cursor() as cur:
+                cur.executemany(
+                    "INSERT INTO payout_rules (key, label, rate, sort) VALUES (%s, %s, %s, %s)",
+                    _PAYOUT_RULES,
+                )
+            logger.info("Seeded payout rules")
+
+        count = conn.execute("SELECT COUNT(*) FROM side_awards").fetchone()[0]
+        if count == 0:
+            with conn.cursor() as cur:
+                cur.executemany(
+                    "INSERT INTO side_awards (key, label, rate, sort) VALUES (%s, %s, %s, %s)",
+                    _SIDE_AWARDS,
+                )
+            logger.info("Seeded side awards")
 
     logger.info("Defaults seeded")
