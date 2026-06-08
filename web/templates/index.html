@@ -8,7 +8,7 @@
   <div class="flex items-center gap-3">
     <span id="status-badge" class="px-3 py-1 rounded text-xs font-bold uppercase bg-gray-700">idle</span>
     <span id="progress-text" class="text-gray-500 text-sm"></span>
-    <span id="phase-badge" class="ml-auto text-yellow-400 font-bold text-sm"></span>
+    <span id="phase-badge" class="ml-auto text-gray-300 font-bold text-sm"></span>
   </div>
 
   <!-- Current team card -->
@@ -18,7 +18,7 @@
     <div id="bid-section">
       <div id="no-bid-msg" class="text-gray-500 text-lg">Waiting for opening bid — type <code class="bg-gray-800 px-1 rounded">/bid &lt;amount&gt;</code></div>
       <div id="high-bid-section" class="hidden">
-        <div id="high-bid"    class="text-5xl font-bold text-green-400 mb-1"></div>
+        <div id="high-bid"    class="text-5xl font-bold text-gray-100 mb-1"></div>
         <div id="high-bidder" class="text-gray-400 text-lg"></div>
       </div>
     </div>
@@ -49,10 +49,10 @@
 
 <script>
 const STATUS_COLORS = {
-  running: 'bg-green-700',
-  paused:  'bg-yellow-700',
-  idle:    'bg-gray-700',
-  done:    'bg-blue-700',
+  running: 'bg-gray-600',
+  paused:  'bg-gray-700',
+  idle:    'bg-gray-800',
+  done:    'bg-gray-700',
 };
 const PHASE_TEXT = {
   once:  'Going once...',
@@ -110,7 +110,7 @@ async function refresh() {
     const bidsEl = document.getElementById('recent-bids');
     if (d.recent_bids.length) {
       bidsEl.innerHTML = d.recent_bids.map(b =>
-        `<li class="flex justify-between"><span class="text-gray-300">@${b.username}</span><span class="text-green-400 font-bold">$${b.amount.toLocaleString()}</span></li>`
+        `<li class="flex justify-between"><span class="text-gray-300">@${b.username}</span><span class="text-gray-100 font-bold">$${b.amount.toLocaleString()}</span></li>`
       ).join('');
     } else {
       bidsEl.innerHTML = '<li class="text-gray-600 text-xs">No bids yet</li>';
@@ -120,7 +120,7 @@ async function refresh() {
     const soldEl = document.getElementById('recent-sold');
     if (d.recent_sold.length) {
       soldEl.innerHTML = d.recent_sold.map(t =>
-        `<li class="flex items-center gap-2"><span>${t.flag}</span><span class="text-gray-300 flex-1 truncate">${t.name}</span><span class="text-gray-500">@${t.buyer}</span><span class="text-green-400 font-bold ml-2">$${t.price.toLocaleString()}</span></li>`
+        `<li class="flex items-center gap-2"><span>${t.flag}</span><span class="text-gray-300 flex-1 truncate">${t.name}</span><span class="text-gray-500">@${t.buyer}</span><span class="text-gray-100 font-bold ml-2">$${t.price.toLocaleString()}</span></li>`
       ).join('');
     } else {
       soldEl.innerHTML = '<li class="text-gray-600 text-xs">Nothing sold yet</li>';
