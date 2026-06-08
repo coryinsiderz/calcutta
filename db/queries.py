@@ -477,6 +477,9 @@ def get_live_state() -> dict:
             cur.execute("SELECT COUNT(*) AS n FROM teams WHERE status = 'sold'")
             sold = cur.fetchone()["n"]
 
+            cur.execute("SELECT COALESCE(SUM(sold_price), 0) AS pot FROM teams WHERE status = 'sold'")
+            pot = cur.fetchone()["pot"]
+
             cur.execute(
                 "SELECT * FROM teams WHERE status = 'sold' ORDER BY sold_at DESC LIMIT 6"
             )
@@ -495,6 +498,7 @@ def get_live_state() -> dict:
             "silence_phase": (state["silence_phase"] if state else "none"),
             "remaining_teams": remaining,
             "teams_sold": sold,
+            "pot": pot,
             "recent_bids": [
                 {
                     "username": b["username"],
