@@ -227,6 +227,32 @@ def correct_sold_price(team_id: int, new_price: int):
         )
 
 
+def admin_update_team(team_id: int, name: str, status: str, owner: str | None, price: int | None):
+    """Full manual edit of a team row from the admin panel."""
+    with get_conn() as conn:
+        if status == "sold":
+            conn.execute(
+                """UPDATE teams SET name = %s, status = 'sold',
+                   sold_to_username = %s, sold_price = %s,
+                   sold_at = COALESCE(sold_at, now())
+                   WHERE id = %s""",
+                (name, owner, price if price is not None else 0, team_id),
+            )
+        elif status == "pending":
+            conn.execute(
+                """UPDATE teams SET name = %s, status = 'pending',
+                   sold_to_user_id = NULL, sold_to_username = NULL,
+                   sold_price = NULL, sold_at = NULL
+                   WHERE id = %s""",
+                (name, team_id),
+            )
+        else:  # active
+            conn.execute(
+                "UPDATE teams SET name = %s, status = %s WHERE id = %s",
+                (name, status, team_id),
+            )
+
+
 def reset_auction():
     """Wipe all bids and sales, reset state to idle, reshuffle the draw order."""
     with get_conn() as conn:

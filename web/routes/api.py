@@ -81,6 +81,48 @@ def reset():
     return _queue("reset")
 
 
+@api_bp.route("/admin/team/<int:team_id>", methods=["POST"])
+def update_team(team_id):
+    data = request.get_json(force=True)
+    name = (data.get("name") or "").strip()
+    status = data.get("status") or "pending"
+    owner = (data.get("owner") or "").strip().lstrip("@") or None
+    price_raw = data.get("price")
+
+    if not name:
+        return jsonify({"ok": False, "error": "name required"}), 400
+    if status not in ("pending", "active", "sold"):
+        return jsonify({"ok": False, "error": "bad status"}), 400
+
+    if status == "sold":
+        try:
+            price = int(price_raw) if price_raw not in (None, "") else 0
+        except (ValueError, TypeError):
+            return jsonify({"ok": False, "error": "price must be a number"}), 400
+    else:
+        price = None
+
+    queries.admin_update_team(team_id, name, status, owner, price)
+    queries.queue_override("reload_state")
+    return jsonify({"ok": True})
+
+
+@api_bp.route("/admin/set_high_bid", methods=["POST"])
+def set_high_bid():
+    data = request.get_json(force=True)
+    amount = data.get("amount")
+    bidder = (data.get("bidder") or "").strip().lstrip("@")
+    try:
+        amount = int(amount)
+    except (ValueError, TypeError):
+        return jsonify({"ok": False, "error": "amount must be a number"}), 400
+    if amount < 1:
+        return jsonify({"ok": False, "error": "amount must be >= 1"}), 400
+    if not bidder:
+        return jsonify({"ok": False, "error": "bidder required"}), 400
+    return _queue("set_high_bid", {"amount": amount, "bidder": bidder})
+
+
 @api_bp.route("/admin/reload_config", methods=["POST"])
 def reload_config():
     return _queue("reload_config")

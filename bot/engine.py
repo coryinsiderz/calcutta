@@ -429,6 +429,32 @@ class AuctionEngine:
                             f"✏️ Price corrected: {name} → ${int(new_price):,}",
                         )
 
+            elif action == "set_high_bid":
+                if self.current_team and self.status in ("running", "paused"):
+                    amount = int(params.get("amount", 0))
+                    bidder = params.get("bidder") or "admin"
+                    uid = int(params.get("user_id") or 0)
+                    self.high_bid = amount
+                    self.high_bidder_user_id = uid
+                    self.high_bidder_username = bidder
+                    self.silence_phase = "none"
+                    await asyncio.to_thread(
+                        queries.accept_bid_state, self.current_team["id"], uid, bidder, amount
+                    )
+                    if self.status == "running":
+                        self.timer.reset()
+                    if self.chat_id:
+                        await self.bot.send_message(
+                            self.chat_id, f"🛠 Admin set high bid: ${amount:,} — @{bidder}"
+                        )
+
+            elif action == "reload_state":
+                st = await asyncio.to_thread(queries.get_auction_state)
+                if st and st["current_team_id"]:
+                    self.current_team = await asyncio.to_thread(
+                        queries.get_team_by_id, st["current_team_id"]
+                    )
+
             elif action == "reset":
                 await self.reset()
                 if self.chat_id:

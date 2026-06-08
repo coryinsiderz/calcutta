@@ -2,7 +2,7 @@
 {% block title %}Admin{% endblock %}
 
 {% block content %}
-<div class="max-w-3xl mx-auto space-y-6">
+<div class="max-w-4xl mx-auto space-y-6">
   <h1 class="text-xl font-bold text-green-400">Admin Panel</h1>
 
   <div id="msg" class="hidden rounded px-4 py-2 text-sm"></div>
@@ -30,56 +30,94 @@
         ▶ Resume
       </button>
     </div>
+
+    <!-- Live high-bid override -->
+    <div class="mt-5 border-t border-gray-800 pt-4">
+      <h3 class="text-gray-500 text-xs uppercase tracking-widest mb-2">Override Live High Bid</h3>
+      <div class="flex gap-3 items-end flex-wrap">
+        <label class="space-y-1">
+          <span class="text-gray-500 text-xs">Amount ($)</span>
+          <input id="ov-amount" type="number" min="1" placeholder="e.g. 120"
+                 class="w-28 bg-gray-800 border border-gray-600 rounded px-3 py-2 text-white focus:outline-none focus:border-green-500">
+        </label>
+        <label class="space-y-1">
+          <span class="text-gray-500 text-xs">Bidder (username)</span>
+          <input id="ov-bidder" type="text" placeholder="dave"
+                 class="w-36 bg-gray-800 border border-gray-600 rounded px-3 py-2 text-white focus:outline-none focus:border-green-500">
+        </label>
+        <button onclick="setHighBid()" class="bg-blue-700 hover:bg-blue-600 text-white text-sm px-4 py-2 rounded">
+          Set
+        </button>
+      </div>
+      <p class="text-gray-600 text-xs mt-2">Affects the team currently being auctioned. Records a bid and resets the going-once/twice clock.</p>
+    </div>
   </section>
 
-  <!-- Undo -->
+  <!-- Quick actions -->
   <section class="bg-gray-900 border border-gray-700 rounded-xl p-5">
-    <h2 class="text-gray-400 text-xs uppercase tracking-widest mb-3">Undo Last Sale</h2>
-    {% if last_sold %}
-    <p class="text-gray-300 text-sm mb-3">
-      Last sold: <strong>{{ last_sold.flag }} {{ last_sold.name }}</strong>
-      → @{{ last_sold.sold_to_username }} for ${{ "{:,}".format(last_sold.sold_price) }}
-    </p>
-    <button onclick="confirmUndo()"
-            class="bg-red-800 hover:bg-red-700 text-white text-sm px-4 py-2 rounded">
-      ↩ Undo — re-auction {{ last_sold.name }}
-    </button>
-    {% else %}
-    <p class="text-gray-600 text-sm">No teams sold yet.</p>
-    {% endif %}
-  </section>
-
-  <!-- Correct price -->
-  <section class="bg-gray-900 border border-gray-700 rounded-xl p-5 space-y-3">
-    <h2 class="text-gray-400 text-xs uppercase tracking-widest">Correct Sold Price</h2>
-    <div class="flex gap-3 items-end flex-wrap">
-      <label class="space-y-1">
-        <span class="text-gray-500 text-xs">Team</span>
-        <select id="correct-team" class="bg-gray-800 border border-gray-600 rounded px-3 py-2 text-white focus:outline-none focus:border-green-500">
-          <option value="">— select —</option>
-          {% for t in sold_teams %}
-          <option value="{{ t.id }}">{{ t.flag }} {{ t.name }} (${{ "{:,}".format(t.sold_price) }})</option>
-          {% endfor %}
-        </select>
-      </label>
-      <label class="space-y-1">
-        <span class="text-gray-500 text-xs">New price ($)</span>
-        <input id="correct-price" type="number" min="1" placeholder="e.g. 175"
-               class="w-32 bg-gray-800 border border-gray-600 rounded px-3 py-2 text-white focus:outline-none focus:border-green-500">
-      </label>
-      <button onclick="correctPrice()" class="bg-blue-700 hover:bg-blue-600 text-white text-sm px-4 py-2 rounded">
-        ✏ Correct
+    <h2 class="text-gray-400 text-xs uppercase tracking-widest mb-3">Quick Actions</h2>
+    <div class="flex gap-3 flex-wrap">
+      {% if last_sold %}
+      <button onclick="confirmUndo()" class="bg-red-800 hover:bg-red-700 text-white text-sm px-4 py-2 rounded">
+        ↩ Undo last sale ({{ last_sold.name }})
+      </button>
+      {% endif %}
+      <button onclick="doAction('/api/admin/shuffle', 'Teams reshuffled.')"
+              class="bg-purple-700 hover:bg-purple-600 text-white text-sm px-4 py-2 rounded">
+        🔀 Shuffle pending
       </button>
     </div>
   </section>
 
-  <!-- Shuffle -->
+  <!-- Editable teams table -->
   <section class="bg-gray-900 border border-gray-700 rounded-xl p-5">
-    <h2 class="text-gray-400 text-xs uppercase tracking-widest mb-3">Draw Order</h2>
-    <button onclick="doAction('/api/admin/shuffle', 'Teams reshuffled.')"
-            class="bg-purple-700 hover:bg-purple-600 text-white text-sm px-4 py-2 rounded">
-      🔀 Shuffle Pending Teams
-    </button>
+    <h2 class="text-gray-400 text-xs uppercase tracking-widest mb-1">
+      All Teams — Pot: <span class="text-green-400">${{ "{:,}".format(pot) }}</span>
+    </h2>
+    <p class="text-gray-600 text-xs mb-4">
+      Edit any team's name, status, owner, or price, then hit Save. To manually assign a team: set status to <code class="bg-gray-800 px-1 rounded">sold</code>, fill owner + price. Setting status to <code class="bg-gray-800 px-1 rounded">pending</code> clears the sale.
+    </p>
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="text-gray-500 text-xs uppercase text-left border-b border-gray-800">
+            <th class="pb-2 pr-2">#</th>
+            <th class="pb-2 pr-2">Team</th>
+            <th class="pb-2 pr-2">Status</th>
+            <th class="pb-2 pr-2">Owner</th>
+            <th class="pb-2 pr-2">Price $</th>
+            <th class="pb-2"></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for t in all_teams %}
+          <tr class="team-row border-b border-gray-800/40" data-id="{{ t.id }}">
+            <td class="py-1 pr-2 text-gray-600">{{ t.draw_position }}</td>
+            <td class="py-1 pr-2 whitespace-nowrap">
+              <span class="mr-1">{{ t.flag }}</span>
+              <input class="t-name w-36 bg-gray-800 border border-gray-700 rounded px-2 py-1 text-white focus:outline-none focus:border-green-500" value="{{ t.name }}">
+            </td>
+            <td class="py-1 pr-2">
+              <select class="t-status bg-gray-800 border border-gray-700 rounded px-2 py-1 text-white focus:outline-none focus:border-green-500">
+                <option value="pending" {% if t.status == 'pending' %}selected{% endif %}>pending</option>
+                <option value="active"  {% if t.status == 'active' %}selected{% endif %}>active</option>
+                <option value="sold"    {% if t.status == 'sold' %}selected{% endif %}>sold</option>
+              </select>
+            </td>
+            <td class="py-1 pr-2">
+              <input class="t-owner w-28 bg-gray-800 border border-gray-700 rounded px-2 py-1 text-white focus:outline-none focus:border-green-500" value="{{ t.sold_to_username or '' }}" placeholder="username">
+            </td>
+            <td class="py-1 pr-2">
+              <input type="number" min="0" class="t-price w-20 bg-gray-800 border border-gray-700 rounded px-2 py-1 text-white focus:outline-none focus:border-green-500" value="{{ t.sold_price if t.sold_price is not none else '' }}">
+            </td>
+            <td class="py-1">
+              <button onclick="saveTeam(this)" class="save-btn bg-blue-700 hover:bg-blue-600 text-white text-xs px-3 py-1 rounded">Save</button>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
   </section>
 
   <!-- Danger zone -->
@@ -93,31 +131,6 @@
       🧹 Reset Entire Auction
     </button>
   </section>
-
-  <!-- Results table -->
-  {% if sold_teams %}
-  <section class="bg-gray-900 border border-gray-700 rounded-xl p-5">
-    <h2 class="text-gray-400 text-xs uppercase tracking-widest mb-3">Results (pot: ${{ "{:,}".format(pot) }})</h2>
-    <table class="w-full text-sm">
-      <thead>
-        <tr class="text-gray-500 text-xs uppercase text-left border-b border-gray-800">
-          <th class="pb-2">Team</th>
-          <th class="pb-2">Buyer</th>
-          <th class="pb-2 text-right">Price</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for t in sold_teams %}
-        <tr class="border-b border-gray-800/50">
-          <td class="py-2">{{ t.flag }} {{ t.name }}</td>
-          <td class="py-2 text-gray-400">@{{ t.sold_to_username }}</td>
-          <td class="py-2 text-right text-green-400 font-bold">${{ "{:,}".format(t.sold_price) }}</td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </section>
-  {% endif %}
 
 </div>
 
@@ -150,22 +163,51 @@ function confirmReset() {
   doAction('/api/admin/reset', 'Reset queued — auction wiped.');
 }
 
-async function correctPrice() {
-  const teamId  = document.getElementById('correct-team').value;
-  const newPrice = parseInt(document.getElementById('correct-price').value, 10);
-  if (!teamId) { showMsg('Select a team.', false); return; }
-  if (!newPrice || newPrice < 1) { showMsg('Enter a valid price.', false); return; }
-
+async function setHighBid() {
+  const amount = parseInt(document.getElementById('ov-amount').value, 10);
+  const bidder = document.getElementById('ov-bidder').value.trim();
+  if (!amount || amount < 1) { showMsg('Enter an amount.', false); return; }
+  if (!bidder) { showMsg('Enter a bidder.', false); return; }
   try {
-    const r = await fetch('/api/admin/correct', {
-      method: 'POST',
-      headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({ team_id: parseInt(teamId), new_price: newPrice }),
+    const r = await fetch('/api/admin/set_high_bid', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ amount, bidder }),
     });
     const d = await r.json();
-    if (d.ok) { showMsg('Price correction queued.'); location.reload(); }
+    if (d.ok) showMsg('High bid override queued.');
     else showMsg(d.error || 'Failed', false);
   } catch(e) { showMsg(String(e), false); }
+}
+
+async function saveTeam(btn) {
+  const row = btn.closest('tr');
+  const id = row.dataset.id;
+  const payload = {
+    name:   row.querySelector('.t-name').value,
+    status: row.querySelector('.t-status').value,
+    owner:  row.querySelector('.t-owner').value,
+    price:  row.querySelector('.t-price').value,
+  };
+  const orig = btn.textContent;
+  btn.textContent = '…';
+  try {
+    const r = await fetch(`/api/admin/team/${id}`, {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify(payload),
+    });
+    const d = await r.json();
+    if (d.ok) {
+      btn.textContent = '✓';
+      btn.classList.add('bg-green-700');
+      setTimeout(() => { btn.textContent = orig; btn.classList.remove('bg-green-700'); }, 1500);
+    } else {
+      showMsg(d.error || 'Save failed', false);
+      btn.textContent = orig;
+    }
+  } catch(e) {
+    showMsg(String(e), false);
+    btn.textContent = orig;
+  }
 }
 </script>
 {% endblock %}

@@ -18,7 +18,9 @@ async def results(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     lines = ["🏆 *Auction Results*\n"]
     for t in teams:
-        lines.append(f"{t['flag']} {t['name']} → @{t['sold_to_username']} — ${t['sold_price']:,}")
+        price = t["sold_price"] or 0
+        owner = t["sold_to_username"] or "?"
+        lines.append(f"{t['flag']} {t['name']} → @{owner} — ${price:,}")
 
     total_pot = sum(t["sold_price"] or 0 for t in teams)
     lines.append(f"\n*Pot: ${total_pot:,}*")
