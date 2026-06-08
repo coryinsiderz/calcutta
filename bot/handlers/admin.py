@@ -123,10 +123,10 @@ async def cmd_reset(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     args = context.args
-    if not args or args[0] != "CONFIRM":
+    if not args or args[0].strip().lower() != "confirm":
         await update.message.reply_text(
             "⚠️ This wipes ALL bids and sold teams and resets the auction to idle.\n"
-            "Nothing is recoverable. To confirm, send:\n\n/reset CONFIRM"
+            "Nothing is recoverable. To confirm, send:\n\n/reset confirm"
         )
         return
 
