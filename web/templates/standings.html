@@ -72,10 +72,10 @@
           {% for t in data.teams %}
           <tr class="border-b border-gray-800/40">
             <td class="py-2 pr-2 whitespace-nowrap">{{ t.flag }} {{ t.name }}
-              {% if t.side_awards %}<span class="text-yellow-500 text-xs">★</span>{% endif %}
+              {% if t.side_awards %}<span class="text-yellow-500 text-xs">*</span>{% endif %}
             </td>
             <td class="py-2 pr-2 text-gray-400">{{ ('@' ~ t.owner) if t.owner else '—' }}</td>
-            <td class="py-2 pr-2 text-gray-400">{{ t.stage_label }}{{ ' 🏅' if t.won_group }}</td>
+            <td class="py-2 pr-2 text-gray-400">{{ t.stage_label }}{{ ' (won group)' if t.won_group }}</td>
             <td class="py-2 pr-2 text-right text-gray-300">{{ ('$' ~ '{:,}'.format(t.price)) if t.status == 'sold' else '—' }}</td>
             <td class="py-2 text-right font-bold {{ 'text-green-400' if t.payout else 'text-gray-600' }}">
               {{ ('$' ~ '{:,}'.format(t.payout)) if t.payout else '—' }}

@@ -148,7 +148,7 @@ def build_info_text() -> str:
     lb = data["leaderboard"]
     sold = sum(1 for t in data["teams"] if t["status"] == "sold")
 
-    lines = [f"🏆 Pot: ${pot:,}  ·  {sold}/48 sold"]
+    lines = [f"Pot: ${pot:,}  ·  {sold}/48 sold"]
     if lb:
         has_winnings = any(o["won"] for o in lb)
         lines.append("")

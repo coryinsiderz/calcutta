@@ -27,7 +27,7 @@ async def cmd_bid(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if not accepted:
         await update.message.reply_text(f"Bid rejected: {reason}")
-    # On accept, the engine posts the "💰 $X — @user" confirmation; the /bid
+    # On accept, the engine posts the "$X — @user" confirmation; the /bid
     # message is left in place (bot never deletes messages).
 
 

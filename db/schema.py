@@ -14,7 +14,7 @@ CREATE TABLE IF NOT EXISTS auction_config (
     opening_floor     INT  NOT NULL DEFAULT 1,
     msg_going_once    TEXT NOT NULL DEFAULT 'Going once... {team} to {bidder} for ${amount}',
     msg_going_twice   TEXT NOT NULL DEFAULT 'Going twice... {team} to {bidder} for ${amount}',
-    msg_sold          TEXT NOT NULL DEFAULT 'SOLD! {team} to {bidder} for ${amount} 🔨',
+    msg_sold          TEXT NOT NULL DEFAULT 'SOLD! {team} to {bidder} for ${amount}',
     CONSTRAINT auction_config_one_row CHECK (id = 1)
 );
 
@@ -133,6 +133,14 @@ def seed_defaults():
     with get_conn() as conn:
         conn.execute(
             "INSERT INTO auction_config (id) VALUES (1) ON CONFLICT (id) DO NOTHING"
+        )
+        # Strip the old emoji default from existing installs (leaves customizations intact)
+        conn.execute(
+            "UPDATE auction_config SET msg_sold = %s WHERE msg_sold = %s",
+            (
+                "SOLD! {team} to {bidder} for ${amount}",
+                "SOLD! {team} to {bidder} for ${amount} \U0001f528",
+            ),
         )
         conn.execute(
             "INSERT INTO auction_state (id) VALUES (1) ON CONFLICT (id) DO NOTHING"

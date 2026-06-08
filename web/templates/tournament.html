@@ -91,7 +91,7 @@ async function saveProg(el) {
       body: JSON.stringify({ team_id: parseInt(id), ko_stage, won_group }),
     });
     const d = await r.json();
-    if (d.ok) { status.textContent = '✓'; setTimeout(() => status.textContent = '', 1500); }
+    if (d.ok) { status.textContent = 'saved'; setTimeout(() => status.textContent = '', 1500); }
     else { status.textContent = ''; showMsg(d.error || 'Failed', false); }
   } catch(e) { status.textContent = ''; showMsg(String(e), false); }
 }

@@ -49,7 +49,7 @@ async def cmd_pause(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"Can't pause — status is '{engine.status}'.")
         return
     await engine.pause()
-    await update.message.reply_text("⏸ Auction paused.")
+    await update.message.reply_text("Auction paused.")
 
 
 async def cmd_resume(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -60,7 +60,7 @@ async def cmd_resume(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"Can't resume — status is '{engine.status}'.")
         return
     await engine.resume()
-    await update.message.reply_text("▶️ Auction resumed.")
+    await update.message.reply_text("Auction resumed.")
 
 
 # ── /next ─────────────────────────────────────────────────────────────────────
@@ -84,7 +84,7 @@ async def cmd_undo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ok, result = await engine.undo_last_sold()
     if ok:
         await update.message.reply_text(
-            f"↩️ Undo! Re-auctioning {result}.\n"
+            f"Undo! Re-auctioning {result}.\n"
             f"Opening bid: /bid <amount>  (min ${engine.config.get('opening_floor', 1)})"
         )
     else:
@@ -111,7 +111,7 @@ async def cmd_correct(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await asyncio.to_thread(queries.correct_sold_price, last["id"], amount)
     await update.message.reply_text(
-        f"✏️ Corrected: {last['flag']} {last['name']} → ${amount:,}  (was ${last['sold_price']:,})"
+        f"Corrected: {last['flag']} {last['name']} → ${amount:,}  (was ${last['sold_price']:,})"
     )
 
 
@@ -125,7 +125,7 @@ async def cmd_reset(update: Update, context: ContextTypes.DEFAULT_TYPE):
     args = context.args
     if not args or args[0].strip().lower() != "confirm":
         await update.message.reply_text(
-            "⚠️ This wipes ALL bids and sold teams and resets the auction to idle.\n"
+            "This wipes ALL bids and sold teams and resets the auction to idle.\n"
             "Nothing is recoverable. To confirm, send:\n\n/reset confirm"
         )
         return
@@ -133,7 +133,7 @@ async def cmd_reset(update: Update, context: ContextTypes.DEFAULT_TYPE):
     engine = context.bot_data["engine"]
     await engine.reset()
     await update.message.reply_text(
-        "🧹 Auction reset. All 48 teams pending, draw reshuffled, status idle.\nRun /start to begin."
+        "Auction reset. All 48 teams pending, draw reshuffled, status idle.\nRun /start to begin."
     )
 
 
@@ -183,7 +183,7 @@ async def cmd_status(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if engine.current_team:
         team_info = f"\nCurrent: {engine.current_team['flag']} {engine.current_team['name']}"
         if engine.high_bid:
-            team_info += f"  💰 ${engine.high_bid:,} @{engine.high_bidder_username}"
+            team_info += f"  ${engine.high_bid:,} @{engine.high_bidder_username}"
 
     await update.message.reply_text(
         f"Status: *{engine.status}*{team_info}\n"

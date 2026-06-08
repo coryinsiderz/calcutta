@@ -22,7 +22,7 @@ async def results(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("No teams sold yet.")
         return
 
-    lines = ["🏆 *Auction Results*\n"]
+    lines = ["*Auction Results*\n"]
     for t in teams:
         price = t["sold_price"] or 0
         owner = t["sold_to_username"] or "?"

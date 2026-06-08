@@ -74,10 +74,10 @@ class AuctionEngine:
         try:
             await self.bot.send_message(
                 self.chat_id,
-                f"⚙️ Bot restarted — resuming auction.\n\n"
+                f"Bot restarted — resuming auction.\n\n"
                 f"{team['flag']} {team['name'].upper()}\n"
                 + (
-                    f"💰 Current high: ${self.high_bid:,} — @{self.high_bidder_username}"
+                    f"Current high: ${self.high_bid:,} — @{self.high_bidder_username}"
                     if self.high_bid
                     else f"Opening bid: /bid <amount> (min ${self.config.get('opening_floor', 1)})"
                 ),
@@ -86,7 +86,7 @@ class AuctionEngine:
                 keyboard = build_bid_keyboard(self.high_bid, team["id"], self.increment_bands)
                 msg = await self.bot.send_message(
                     self.chat_id,
-                    f"💰 ${self.high_bid:,} — @{self.high_bidder_username}",
+                    f"${self.high_bid:,} — @{self.high_bidder_username}",
                     reply_markup=keyboard,
                 )
                 self.bid_message_id = msg.message_id
@@ -237,7 +237,7 @@ class AuctionEngine:
         keyboard = build_bid_keyboard(amount, self.current_team["id"], self.increment_bands)
         msg = await self.bot.send_message(
             self.chat_id,
-            f"💰 ${amount:,} — @{username}",
+            f"${amount:,} — @{username}",
             reply_markup=keyboard,
         )
         self.bid_message_id = msg.message_id
@@ -268,13 +268,13 @@ class AuctionEngine:
                 await self.bot.edit_message_text(
                     chat_id=self.chat_id,
                     message_id=self.bid_message_id,
-                    text=f"💰 ${self.high_bid:,} — @{self.high_bidder_username}\n\n⚡ {text}",
+                    text=f"${self.high_bid:,} — @{self.high_bidder_username}\n\n{text}",
                     reply_markup=keyboard,
                 )
                 return
             except Exception:
                 pass
-        await self.bot.send_message(self.chat_id, f"⚡ {text}")
+        await self.bot.send_message(self.chat_id, text)
 
     async def _on_going_twice(self):
         if self.status != "running" or not self.current_team or not self.high_bid:
@@ -294,20 +294,20 @@ class AuctionEngine:
                 await self.bot.edit_message_text(
                     chat_id=self.chat_id,
                     message_id=self.bid_message_id,
-                    text=f"💰 ${self.high_bid:,} — @{self.high_bidder_username}\n\n⚡⚡ {text}",
+                    text=f"${self.high_bid:,} — @{self.high_bidder_username}\n\n{text}",
                     reply_markup=keyboard,
                 )
                 return
             except Exception:
                 pass
-        await self.bot.send_message(self.chat_id, f"⚡⚡ {text}")
+        await self.bot.send_message(self.chat_id, text)
 
     async def _on_sold(self):
         if self.status != "running" or not self.current_team or not self.high_bid:
             return
 
         team = self.current_team
-        sold_text = self.config.get("msg_sold", "SOLD! {team} to {bidder} for ${amount} 🔨").format(
+        sold_text = self.config.get("msg_sold", "SOLD! {team} to {bidder} for ${amount}").format(
             team=team["name"],
             bidder=self.high_bidder_username,
             amount=f"{self.high_bid:,}",
@@ -360,7 +360,7 @@ class AuctionEngine:
             await asyncio.to_thread(queries.set_auction_status, "done")
             await self.bot.send_message(
                 self.chat_id,
-                "🏆 All 48 teams sold! Auction complete.\nUse /results for the full breakdown.",
+                "All 48 teams sold! Auction complete.\nUse /results for the full breakdown.",
             )
             return
 
@@ -404,13 +404,13 @@ class AuctionEngine:
                 if self.status == "running":
                     await self.pause()
                     if self.chat_id:
-                        await self.bot.send_message(self.chat_id, "⏸ Auction paused by admin.")
+                        await self.bot.send_message(self.chat_id, "Auction paused by admin.")
 
             elif action == "resume":
                 if self.status == "paused":
                     await self.resume()
                     if self.chat_id:
-                        await self.bot.send_message(self.chat_id, "▶️ Auction resumed by admin.")
+                        await self.bot.send_message(self.chat_id, "Auction resumed by admin.")
 
             elif action == "undo_last":
                 ok, result = await self.undo_last_sold()
@@ -418,7 +418,7 @@ class AuctionEngine:
                     if ok:
                         await self.bot.send_message(
                             self.chat_id,
-                            f"↩️ Undo! Re-auctioning {result}.\n"
+                            f"Undo! Re-auctioning {result}.\n"
                             f"Opening bid: /bid <amount>  (min ${self.config.get('opening_floor', 1)})",
                         )
                     else:
@@ -434,7 +434,7 @@ class AuctionEngine:
                         name = team["name"] if team else f"team #{team_id}"
                         await self.bot.send_message(
                             self.chat_id,
-                            f"✏️ Price corrected: {name} → ${int(new_price):,}",
+                            f"Price corrected: {name} → ${int(new_price):,}",
                         )
 
             elif action == "set_high_bid":
@@ -453,7 +453,7 @@ class AuctionEngine:
                         self.timer.reset()
                     if self.chat_id:
                         await self.bot.send_message(
-                            self.chat_id, f"🛠 Admin set high bid: ${amount:,} — @{bidder}"
+                            self.chat_id, f"Admin set high bid: ${amount:,} — @{bidder}"
                         )
 
             elif action == "reload_state":
@@ -468,7 +468,7 @@ class AuctionEngine:
                 if self.chat_id:
                     await self.bot.send_message(
                         self.chat_id,
-                        "🧹 Auction reset by admin. All teams pending, draw reshuffled. Run /start to begin.",
+                        "Auction reset by admin. All teams pending, draw reshuffled. Run /start to begin.",
                     )
 
             elif action == "reload_config":

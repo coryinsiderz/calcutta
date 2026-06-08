@@ -55,8 +55,8 @@ const STATUS_COLORS = {
   done:    'bg-blue-700',
 };
 const PHASE_TEXT = {
-  once:  '⚡ Going once...',
-  twice: '⚡⚡ Going twice...',
+  once:  'Going once...',
+  twice: 'Going twice...',
   none:  '',
 };
 
@@ -99,7 +99,7 @@ async function refresh() {
     } else {
       teamCard.classList.add('hidden');
       if (d.status === 'done') {
-        idleCard.querySelector('div').textContent = '🏆 Auction complete!';
+        idleCard.querySelector('div').textContent = 'Auction complete!';
         idleCard.classList.remove('hidden');
       } else {
         idleCard.classList.remove('hidden');

@@ -24,10 +24,10 @@
     </div>
     <div class="flex gap-3 mt-4">
       <button onclick="doAction('/api/admin/pause')" class="bg-yellow-700 hover:bg-yellow-600 text-white text-sm px-4 py-2 rounded">
-        ⏸ Pause
+        Pause
       </button>
       <button onclick="doAction('/api/admin/resume')" class="bg-green-700 hover:bg-green-600 text-white text-sm px-4 py-2 rounded">
-        ▶ Resume
+        Resume
       </button>
     </div>
 
@@ -59,12 +59,12 @@
     <div class="flex gap-3 flex-wrap">
       {% if last_sold %}
       <button onclick="confirmUndo()" class="bg-red-800 hover:bg-red-700 text-white text-sm px-4 py-2 rounded">
-        ↩ Undo last sale ({{ last_sold.name }})
+        Undo last sale ({{ last_sold.name }})
       </button>
       {% endif %}
       <button onclick="doAction('/api/admin/shuffle', 'Teams reshuffled.')"
               class="bg-purple-700 hover:bg-purple-600 text-white text-sm px-4 py-2 rounded">
-        🔀 Shuffle pending
+        Shuffle pending
       </button>
     </div>
   </section>
@@ -122,13 +122,13 @@
 
   <!-- Danger zone -->
   <section class="bg-gray-900 border border-red-900 rounded-xl p-5">
-    <h2 class="text-red-500 text-xs uppercase tracking-widest mb-3">⚠ Danger Zone</h2>
+    <h2 class="text-red-500 text-xs uppercase tracking-widest mb-3">Danger Zone</h2>
     <p class="text-gray-400 text-sm mb-3">
       Wipes all bids and sold teams, resets to idle, reshuffles the draw. Use this to clear test data before the real auction.
     </p>
     <button onclick="confirmReset()"
             class="bg-red-800 hover:bg-red-700 text-white text-sm px-4 py-2 rounded">
-      🧹 Reset Entire Auction
+      Reset Entire Auction
     </button>
   </section>
 
@@ -197,7 +197,7 @@ async function saveTeam(btn) {
     });
     const d = await r.json();
     if (d.ok) {
-      btn.textContent = '✓';
+      btn.textContent = 'Saved';
       btn.classList.add('bg-green-700');
       setTimeout(() => { btn.textContent = orig; btn.classList.remove('bg-green-700'); }, 1500);
     } else {
