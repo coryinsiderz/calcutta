@@ -290,7 +290,7 @@ class AuctionEngine:
         self.silence_phase = "twice"
         await asyncio.to_thread(queries.set_silence_phase, "twice")
 
-        text = self.config.get("msg_going_twice", "Going twice... {team} to {bidder} for ${amount}").format(
+        text = self.config.get("msg_going_twice", "TWICE").format(
             team=self.current_team["name"],
             bidder=self.high_bidder_username or "?",
             amount=f"{self.high_bid:,}",

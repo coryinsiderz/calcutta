@@ -13,7 +13,7 @@ CREATE TABLE IF NOT EXISTS auction_config (
     silence_sold_sec  INT  NOT NULL DEFAULT 5,
     opening_floor     INT  NOT NULL DEFAULT 1,
     msg_going_once    TEXT NOT NULL DEFAULT 'Going once... {team} to {bidder} for ${amount}',
-    msg_going_twice   TEXT NOT NULL DEFAULT 'Going twice... {team} to {bidder} for ${amount}',
+    msg_going_twice   TEXT NOT NULL DEFAULT 'TWICE',
     msg_sold          TEXT NOT NULL DEFAULT 'SOLD! {team} to {bidder} for ${amount}',
     CONSTRAINT auction_config_one_row CHECK (id = 1)
 );
@@ -161,6 +161,11 @@ def seed_defaults():
                 "SOLD! {team} to {bidder} for ${amount}",
                 "SOLD! {team} to {bidder} for ${amount} \U0001f528",
             ),
+        )
+        # Update the going-twice wording to the terse "TWICE" on existing installs
+        conn.execute(
+            "UPDATE auction_config SET msg_going_twice = %s WHERE msg_going_twice = %s",
+            ("TWICE", "Going twice... {team} to {bidder} for ${amount}"),
         )
         conn.execute(
             "INSERT INTO auction_state (id) VALUES (1) ON CONFLICT (id) DO NOTHING"
