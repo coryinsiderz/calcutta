@@ -115,6 +115,28 @@ async def cmd_correct(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 
+# ── /reset ────────────────────────────────────────────────────────────────────
+
+async def cmd_reset(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Usage: /reset CONFIRM  — wipes all bids/sales, resets to idle, reshuffles."""
+    if not await _require_admin(update, context):
+        return
+
+    args = context.args
+    if not args or args[0] != "CONFIRM":
+        await update.message.reply_text(
+            "⚠️ This wipes ALL bids and sold teams and resets the auction to idle.\n"
+            "Nothing is recoverable. To confirm, send:\n\n/reset CONFIRM"
+        )
+        return
+
+    engine = context.bot_data["engine"]
+    await engine.reset()
+    await update.message.reply_text(
+        "🧹 Auction reset. All 48 teams pending, draw reshuffled, status idle.\nRun /start to begin."
+    )
+
+
 # ── /shuffle ──────────────────────────────────────────────────────────────────
 
 async def cmd_shuffle(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -178,5 +200,6 @@ def register(app: Application, admin_ids: list[int]):
     app.add_handler(CommandHandler("undo", cmd_undo))
     app.add_handler(CommandHandler("correct", cmd_correct))
     app.add_handler(CommandHandler("shuffle", cmd_shuffle))
+    app.add_handler(CommandHandler("reset", cmd_reset))
     app.add_handler(CommandHandler("config", cmd_config))
     app.add_handler(CommandHandler("status", cmd_status))

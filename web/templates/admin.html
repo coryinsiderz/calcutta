@@ -82,6 +82,18 @@
     </button>
   </section>
 
+  <!-- Danger zone -->
+  <section class="bg-gray-900 border border-red-900 rounded-xl p-5">
+    <h2 class="text-red-500 text-xs uppercase tracking-widest mb-3">⚠ Danger Zone</h2>
+    <p class="text-gray-400 text-sm mb-3">
+      Wipes all bids and sold teams, resets to idle, reshuffles the draw. Use this to clear test data before the real auction.
+    </p>
+    <button onclick="confirmReset()"
+            class="bg-red-800 hover:bg-red-700 text-white text-sm px-4 py-2 rounded">
+      🧹 Reset Entire Auction
+    </button>
+  </section>
+
   <!-- Results table -->
   {% if sold_teams %}
   <section class="bg-gray-900 border border-gray-700 rounded-xl p-5">
@@ -130,6 +142,12 @@ async function doAction(url, successMsg='Done.') {
 function confirmUndo() {
   if (!confirm('Re-auction the last sold team? This will put it back in the queue.')) return;
   doAction('/api/admin/undo', 'Undo queued.');
+}
+
+function confirmReset() {
+  if (!confirm('WIPE the entire auction? All bids and sold teams will be deleted and the draw reshuffled. This cannot be undone.')) return;
+  if (!confirm('Are you absolutely sure? This is irreversible.')) return;
+  doAction('/api/admin/reset', 'Reset queued — auction wiped.');
 }
 
 async function correctPrice() {

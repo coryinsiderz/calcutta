@@ -48,6 +48,7 @@ ADMIN_PASSWORD=       # password for the web panel (HTTP basic auth)
 | `/undo` | Admin | Re-auction the last sold team |
 | `/correct 175` | Admin | Correct last sold team's price |
 | `/shuffle` | Admin | Randomise remaining draw order |
+| `/reset CONFIRM` | Admin | Wipe all bids/sales, reset to idle, reshuffle (for clearing test data) |
 | `/results` | Anyone | Show all sold teams + pot total |
 | `/status` | Anyone | Show current auction state |
 | `/config` | Admin | Show current config |

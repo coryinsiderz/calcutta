@@ -227,6 +227,26 @@ def correct_sold_price(team_id: int, new_price: int):
         )
 
 
+def reset_auction():
+    """Wipe all bids and sales, reset state to idle, reshuffle the draw order."""
+    with get_conn() as conn:
+        conn.execute("DELETE FROM bids")
+        conn.execute(
+            """UPDATE teams SET status = 'pending', sold_to_user_id = NULL,
+               sold_to_username = NULL, sold_price = NULL, sold_at = NULL"""
+        )
+        conn.execute(
+            """UPDATE auction_state SET status = 'idle', current_team_id = NULL,
+               high_bid = NULL, high_bidder_user_id = NULL, high_bidder_username = NULL,
+               bid_message_id = NULL, silence_phase = 'none', last_bid_at = NULL,
+               updated_at = now() WHERE id = 1"""
+        )
+        conn.execute(
+            "UPDATE pending_overrides SET applied = true, applied_at = now() WHERE applied = false"
+        )
+    shuffle_pending_teams()
+
+
 # ── Overrides ────────────────────────────────────────────────────────────────
 
 def get_pending_overrides() -> list[dict]:

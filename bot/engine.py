@@ -125,6 +125,22 @@ class AuctionEngine:
         self.timer.cancel()
         await self._advance_to_next_team()
 
+    async def reset(self):
+        """Full wipe — all bids/sales cleared, state back to idle, draw reshuffled."""
+        self.timer.cancel()
+        if self._advance_task and not self._advance_task.done():
+            self._advance_task.cancel()
+
+        await asyncio.to_thread(queries.reset_auction)
+
+        self.status = "idle"
+        self.current_team = None
+        self.high_bid = 0
+        self.high_bidder_user_id = None
+        self.high_bidder_username = None
+        self.bid_message_id = None
+        self.silence_phase = "none"
+
     async def undo_last_sold(self) -> tuple[bool, str]:
         last = await asyncio.to_thread(queries.get_last_sold_team)
         if not last:
@@ -412,6 +428,14 @@ class AuctionEngine:
                             self.chat_id,
                             f"✏️ Price corrected: {name} → ${int(new_price):,}",
                         )
+
+            elif action == "reset":
+                await self.reset()
+                if self.chat_id:
+                    await self.bot.send_message(
+                        self.chat_id,
+                        "🧹 Auction reset by admin. All teams pending, draw reshuffled. Run /start to begin.",
+                    )
 
             elif action == "reload_config":
                 self.config = await asyncio.to_thread(queries.get_auction_config) or {}

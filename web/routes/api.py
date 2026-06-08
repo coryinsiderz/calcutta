@@ -76,6 +76,11 @@ def shuffle():
     return jsonify({"ok": True})
 
 
+@api_bp.route("/admin/reset", methods=["POST"])
+def reset():
+    return _queue("reset")
+
+
 @api_bp.route("/admin/reload_config", methods=["POST"])
 def reload_config():
     return _queue("reload_config")
