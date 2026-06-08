@@ -1,4 +1,5 @@
 import asyncio
+import difflib
 import logging
 import unicodedata
 
@@ -213,15 +214,59 @@ async def cmd_unregister(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # ── /log (smart manual logging — order-independent via team + registry) ────────
 
-def _parse_log(tokens: list[str], teams: list[dict]):
-    """Return (team_dict, owner_str, price_int, error_str). Identifies the team
-    from the known 48 (any position), leaving the rest as the owner."""
+# Common nicknames that won't substring-match the official name
+_TEAM_ALIASES = {
+    "usa": "united states", "america": "united states", "us": "united states",
+    "holland": "netherlands", "czechia": "czech republic", "bosnia": "bosnia and herzegovina",
+    "korea": "south korea", "uae": "united arab emirates",
+}
+
+_TEAM_CUTOFF = 0.8   # fuzzy threshold for country typos
+_NAME_CUTOFF = 0.72  # fuzzy threshold for player typos (names are short)
+
+
+def _best_participant(name: str, people: list[dict]):
+    """Match an owner name to a registered participant (exact -> fuzzy)."""
+    q = _norm(name)
+    if not q:
+        return None
+    for p in people:
+        if _norm(p["name"]) == q:
+            return p
+    norm_map = {_norm(p["name"]): p for p in people}
+    m = difflib.get_close_matches(q, list(norm_map), n=1, cutoff=_NAME_CUTOFF)
+    return norm_map[m[0]] if m else None
+
+
+def _match_team_slice(s: str, teams: list[dict], norm_team: dict):
+    """Score how well one normalized string identifies a team.
+    Returns (team, score); (None, 0) no match; (None, -k) ambiguous (k candidates)."""
+    if not s:
+        return None, 0.0
+    if s in norm_team:
+        return norm_team[s], 1.0
+    alias = _TEAM_ALIASES.get(s)
+    if alias and alias in norm_team:
+        return norm_team[alias], 1.0
+    subs = [t for t in teams if s in _norm(t["name"])]
+    if len(subs) == 1:
+        return subs[0], 0.85
+    if len(subs) > 1:
+        return None, -len(subs)
+    m = difflib.get_close_matches(s, list(norm_team), n=1, cutoff=_TEAM_CUTOFF)
+    if m:
+        return norm_team[m[0]], difflib.SequenceMatcher(None, s, m[0]).ratio()
+    return None, 0.0
+
+
+def _parse_log(tokens: list[str], teams: list[dict], people: list[dict]):
+    """Return (team, person, price, error). Considers every team/owner split and
+    picks the best combined match — heavily favouring splits whose owner is a
+    registered player, so typos and word order both resolve correctly."""
     if len(tokens) < 3:
         return None, None, None, "Usage: /log <team> <owner> <price>  e.g. /log Brazil cory $120"
 
-    # Price = last token that looks numeric (with optional $ , )
-    price = None
-    price_idx = None
+    price, price_idx = None, None
     for i in range(len(tokens) - 1, -1, -1):
         c = tokens[i].lstrip("$").replace(",", "")
         if c.isdigit():
@@ -234,30 +279,41 @@ def _parse_log(tokens: list[str], teams: list[dict]):
     if len(rest) < 2:
         return None, None, None, "Need a team and an owner. e.g. /log Brazil cory $120"
 
-    name_to_team = {_norm(t["name"]): t for t in teams}
-
-    # 1) Exact contiguous team-name match (longest first), leaving >=1 token for owner
+    norm_team = {_norm(t["name"]): t for t in teams}
     n = len(rest)
-    for length in range(n - 1, 0, -1):
-        for start in range(0, n - length + 1):
-            s = _norm(" ".join(rest[start:start + length]))
-            if s in name_to_team:
-                owner = " ".join(rest[:start] + rest[start + length:]).strip().lstrip("@")
-                if owner:
-                    return name_to_team[s], owner, price, None
+    best = None  # (score, team, owner_str, person)
+    ambiguous = None
 
-    # 2) Substring fallback: a single token uniquely identifying a team
-    for i, tok in enumerate(rest):
-        cands = [t for t in teams if _norm(tok) in _norm(t["name"])]
-        if len(cands) == 1:
-            owner = " ".join(rest[:i] + rest[i + 1:]).strip().lstrip("@")
-            if owner:
-                return cands[0], owner, price, None
-        elif len(cands) > 1:
-            names = ", ".join(c["name"] for c in cands[:6])
-            return None, None, None, f"'{tok}' matches multiple teams: {names}. Use the full name."
+    for length in range(1, n):  # team slice length; owner gets the remainder (>=1)
+        for start in range(n - length + 1):
+            team_str = _norm(" ".join(rest[start:start + length]))
+            owner_str = " ".join(rest[:start] + rest[start + length:]).strip().lstrip("@")
+            if not owner_str:
+                continue
+            team, tscore = _match_team_slice(team_str, teams, norm_team)
+            if team is None:
+                if tscore < 0 and ambiguous is None:
+                    ambiguous = (team_str, [t["name"] for t in teams if team_str in _norm(t["name"])])
+                continue
+            person = _best_participant(owner_str, people)
+            score = tscore + (2.0 if person else 0.0) + 0.01 * length
+            if best is None or score > best[0]:
+                best = (score, team, owner_str, person)
 
-    return None, None, None, f"Couldn't find a team in '{' '.join(rest)}'."
+    if best is None:
+        if ambiguous:
+            s, names = ambiguous
+            return None, None, None, f"'{s}' matches several: {', '.join(names[:6])}. Use the full country name."
+        return None, None, None, f"Couldn't match a country in '{' '.join(rest)}'. Check the spelling."
+
+    _, team, owner_str, person = best
+    if person is None:
+        roster = ", ".join(p["name"] for p in people) if people else "(nobody registered yet)"
+        return None, None, None, (
+            f"Matched team {team['name']}, but couldn't match player '{owner_str}'.\n"
+            f"Registered: {roster}\nFix the spelling or run: /register {owner_str}"
+        )
+    return team, person, price, None
 
 
 async def cmd_log(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -266,17 +322,10 @@ async def cmd_log(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     teams = await asyncio.to_thread(queries.get_all_teams)
-    team, owner_raw, price, error = _parse_log(context.args, teams)
+    people = await asyncio.to_thread(queries.get_participants)
+    team, person, price, error = _parse_log(context.args, teams, people)
     if error:
         await update.message.reply_text(error)
-        return
-
-    person = await asyncio.to_thread(queries.find_participant, owner_raw)
-    if not person:
-        await update.message.reply_text(
-            f"'{owner_raw}' isn't registered. Have them run:  /register {owner_raw}\n"
-            f"(or register for them, then re-run /log)"
-        )
         return
 
     owner = person["name"]
