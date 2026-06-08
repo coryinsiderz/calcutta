@@ -305,11 +305,11 @@ def get_live_state() -> dict:
                 )
                 recent_bids = cur.fetchall()
 
-            cur.execute("SELECT COUNT(*) FROM teams WHERE status = 'pending'")
-            remaining = cur.fetchone()[0]
+            cur.execute("SELECT COUNT(*) AS n FROM teams WHERE status = 'pending'")
+            remaining = cur.fetchone()["n"]
 
-            cur.execute("SELECT COUNT(*) FROM teams WHERE status = 'sold'")
-            sold = cur.fetchone()[0]
+            cur.execute("SELECT COUNT(*) AS n FROM teams WHERE status = 'sold'")
+            sold = cur.fetchone()["n"]
 
             cur.execute(
                 "SELECT * FROM teams WHERE status = 'sold' ORDER BY sold_at DESC LIMIT 6"
