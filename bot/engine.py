@@ -111,7 +111,10 @@ class AuctionEngine:
     async def pause(self):
         self.timer.cancel()
         self.status = "paused"
-        await asyncio.to_thread(queries.set_auction_status, "paused")
+        self.silence_phase = "none"
+        await asyncio.to_thread(
+            queries.update_auction_state, status="paused", silence_phase="none"
+        )
 
     async def resume(self):
         self.status = "running"
