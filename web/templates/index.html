@@ -1,0 +1,137 @@
+{% extends "base.html" %}
+{% block title %}Live Board{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto space-y-6">
+
+  <!-- Status bar -->
+  <div class="flex items-center gap-3">
+    <span id="status-badge" class="px-3 py-1 rounded text-xs font-bold uppercase bg-gray-700">idle</span>
+    <span id="progress-text" class="text-gray-500 text-sm"></span>
+    <span id="phase-badge" class="ml-auto text-yellow-400 font-bold text-sm"></span>
+  </div>
+
+  <!-- Current team card -->
+  <div id="team-card" class="bg-gray-900 border border-gray-700 rounded-xl p-6 text-center hidden">
+    <div id="team-flag"   class="text-7xl mb-2"></div>
+    <div id="team-name"   class="text-3xl font-bold tracking-widest mb-4"></div>
+    <div id="bid-section">
+      <div id="no-bid-msg" class="text-gray-500 text-lg">Waiting for opening bid — type <code class="bg-gray-800 px-1 rounded">/bid &lt;amount&gt;</code></div>
+      <div id="high-bid-section" class="hidden">
+        <div id="high-bid"    class="text-5xl font-bold text-green-400 mb-1"></div>
+        <div id="high-bidder" class="text-gray-400 text-lg"></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="idle-card" class="bg-gray-900 border border-gray-700 rounded-xl p-8 text-center">
+    <div class="text-gray-500 text-xl">Auction not started</div>
+    <div class="text-gray-600 text-sm mt-2">Admin runs <code>/start</code> in the Telegram group</div>
+  </div>
+
+  <!-- Two-column lower section -->
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+    <!-- Recent bids for current team -->
+    <div class="bg-gray-900 border border-gray-700 rounded-xl p-4">
+      <h3 class="text-gray-400 text-xs uppercase tracking-widest mb-3">Bids this team</h3>
+      <ul id="recent-bids" class="space-y-1 text-sm"></ul>
+    </div>
+
+    <!-- Recently sold -->
+    <div class="bg-gray-900 border border-gray-700 rounded-xl p-4">
+      <h3 class="text-gray-400 text-xs uppercase tracking-widest mb-3">Recently sold</h3>
+      <ul id="recent-sold" class="space-y-1 text-sm"></ul>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const STATUS_COLORS = {
+  running: 'bg-green-700',
+  paused:  'bg-yellow-700',
+  idle:    'bg-gray-700',
+  done:    'bg-blue-700',
+};
+const PHASE_TEXT = {
+  once:  '⚡ Going once...',
+  twice: '⚡⚡ Going twice...',
+  none:  '',
+};
+
+async function refresh() {
+  try {
+    const r = await fetch('/api/state');
+    const d = await r.json();
+
+    // Status badge
+    const badge = document.getElementById('status-badge');
+    badge.textContent = d.status;
+    badge.className = `px-3 py-1 rounded text-xs font-bold uppercase ${STATUS_COLORS[d.status] || 'bg-gray-700'}`;
+
+    // Progress
+    document.getElementById('progress-text').textContent =
+      d.teams_sold !== undefined ? `${d.teams_sold} sold · ${d.remaining_teams} remaining` : '';
+
+    // Phase
+    document.getElementById('phase-badge').textContent = PHASE_TEXT[d.silence_phase] || '';
+
+    // Team card
+    const teamCard = document.getElementById('team-card');
+    const idleCard = document.getElementById('idle-card');
+
+    if (d.current_team) {
+      teamCard.classList.remove('hidden');
+      idleCard.classList.add('hidden');
+      document.getElementById('team-flag').textContent = d.current_team.flag;
+      document.getElementById('team-name').textContent = d.current_team.name;
+
+      if (d.high_bid) {
+        document.getElementById('no-bid-msg').classList.add('hidden');
+        document.getElementById('high-bid-section').classList.remove('hidden');
+        document.getElementById('high-bid').textContent = `$${d.high_bid.toLocaleString()}`;
+        document.getElementById('high-bidder').textContent = `@${d.high_bidder}`;
+      } else {
+        document.getElementById('no-bid-msg').classList.remove('hidden');
+        document.getElementById('high-bid-section').classList.add('hidden');
+      }
+    } else {
+      teamCard.classList.add('hidden');
+      if (d.status === 'done') {
+        idleCard.querySelector('div').textContent = '🏆 Auction complete!';
+        idleCard.classList.remove('hidden');
+      } else {
+        idleCard.classList.remove('hidden');
+      }
+    }
+
+    // Recent bids
+    const bidsEl = document.getElementById('recent-bids');
+    if (d.recent_bids.length) {
+      bidsEl.innerHTML = d.recent_bids.map(b =>
+        `<li class="flex justify-between"><span class="text-gray-300">@${b.username}</span><span class="text-green-400 font-bold">$${b.amount.toLocaleString()}</span></li>`
+      ).join('');
+    } else {
+      bidsEl.innerHTML = '<li class="text-gray-600 text-xs">No bids yet</li>';
+    }
+
+    // Recent sold
+    const soldEl = document.getElementById('recent-sold');
+    if (d.recent_sold.length) {
+      soldEl.innerHTML = d.recent_sold.map(t =>
+        `<li class="flex items-center gap-2"><span>${t.flag}</span><span class="text-gray-300 flex-1 truncate">${t.name}</span><span class="text-gray-500">@${t.buyer}</span><span class="text-green-400 font-bold ml-2">$${t.price.toLocaleString()}</span></li>`
+      ).join('');
+    } else {
+      soldEl.innerHTML = '<li class="text-gray-600 text-xs">Nothing sold yet</li>';
+    }
+
+  } catch(e) {
+    console.error('poll error', e);
+  }
+}
+
+refresh();
+setInterval(refresh, 2000);
+</script>
+{% endblock %}

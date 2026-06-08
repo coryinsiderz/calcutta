@@ -1,0 +1,149 @@
+{% extends "base.html" %}
+{% block title %}Config{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto space-y-8">
+  <h1 class="text-xl font-bold text-green-400">Auction Config</h1>
+
+  <div id="save-msg" class="hidden bg-green-900 border border-green-600 text-green-300 rounded px-4 py-2 text-sm"></div>
+  <div id="err-msg"  class="hidden bg-red-900  border border-red-600  text-red-300  rounded px-4 py-2 text-sm"></div>
+
+  <!-- Timer -->
+  <section class="bg-gray-900 border border-gray-700 rounded-xl p-5 space-y-3">
+    <h2 class="text-gray-300 text-sm uppercase tracking-widest">Silence Timer (seconds)</h2>
+    <div class="grid grid-cols-3 gap-4">
+      <label class="space-y-1">
+        <span class="text-gray-500 text-xs">Going once after</span>
+        <input id="silence_once_sec" type="number" min="1" value="{{ config.silence_once_sec }}"
+               class="w-full bg-gray-800 border border-gray-600 rounded px-3 py-2 text-white focus:outline-none focus:border-green-500">
+      </label>
+      <label class="space-y-1">
+        <span class="text-gray-500 text-xs">Going twice after</span>
+        <input id="silence_twice_sec" type="number" min="1" value="{{ config.silence_twice_sec }}"
+               class="w-full bg-gray-800 border border-gray-600 rounded px-3 py-2 text-white focus:outline-none focus:border-green-500">
+      </label>
+      <label class="space-y-1">
+        <span class="text-gray-500 text-xs">Sold after</span>
+        <input id="silence_sold_sec" type="number" min="1" value="{{ config.silence_sold_sec }}"
+               class="w-full bg-gray-800 border border-gray-600 rounded px-3 py-2 text-white focus:outline-none focus:border-green-500">
+      </label>
+    </div>
+  </section>
+
+  <!-- Opening floor -->
+  <section class="bg-gray-900 border border-gray-700 rounded-xl p-5 space-y-3">
+    <h2 class="text-gray-300 text-sm uppercase tracking-widest">Opening Bid Floor</h2>
+    <label class="block space-y-1">
+      <span class="text-gray-500 text-xs">Minimum first bid ($)</span>
+      <input id="opening_floor" type="number" min="1" value="{{ config.opening_floor }}"
+             class="w-40 bg-gray-800 border border-gray-600 rounded px-3 py-2 text-white focus:outline-none focus:border-green-500">
+    </label>
+  </section>
+
+  <!-- Increment bands -->
+  <section class="bg-gray-900 border border-gray-700 rounded-xl p-5 space-y-3">
+    <h2 class="text-gray-300 text-sm uppercase tracking-widest">Increment Bands</h2>
+    <p class="text-gray-600 text-xs">When the high bid ≥ min_price, minimum raise = increment.</p>
+    <table class="w-full text-sm">
+      <thead>
+        <tr class="text-gray-500 text-xs uppercase text-left">
+          <th class="pb-2">Price ≥</th>
+          <th class="pb-2">Min raise</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="bands-body">
+        {% for b in bands %}
+        <tr class="band-row" data-id="{{ b.id }}">
+          <td class="pr-4 pb-2">
+            <input type="number" min="0" value="{{ b.min_price }}"
+                   class="band-min w-28 bg-gray-800 border border-gray-600 rounded px-2 py-1 text-white focus:outline-none focus:border-green-500">
+          </td>
+          <td class="pr-4 pb-2">
+            <input type="number" min="1" value="{{ b.increment }}"
+                   class="band-inc w-28 bg-gray-800 border border-gray-600 rounded px-2 py-1 text-white focus:outline-none focus:border-green-500">
+          </td>
+          <td class="pb-2">
+            <button onclick="removeBand(this)" class="text-red-500 hover:text-red-300 text-xs">Remove</button>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <button onclick="addBand()" class="text-green-500 hover:text-green-300 text-sm">+ Add band</button>
+  </section>
+
+  <!-- Message templates -->
+  <section class="bg-gray-900 border border-gray-700 rounded-xl p-5 space-y-3">
+    <h2 class="text-gray-300 text-sm uppercase tracking-widest">Message Templates</h2>
+    <p class="text-gray-600 text-xs">Placeholders: <code class="bg-gray-800 px-1 rounded">{team}</code> <code class="bg-gray-800 px-1 rounded">{bidder}</code> <code class="bg-gray-800 px-1 rounded">{amount}</code></p>
+    {% for field, label in [('msg_going_once','Going once'),('msg_going_twice','Going twice'),('msg_sold','Sold')] %}
+    <label class="block space-y-1">
+      <span class="text-gray-500 text-xs">{{ label }}</span>
+      <input id="{{ field }}" type="text" value="{{ config[field] }}"
+             class="w-full bg-gray-800 border border-gray-600 rounded px-3 py-2 text-white focus:outline-none focus:border-green-500">
+    </label>
+    {% endfor %}
+  </section>
+
+  <button onclick="saveConfig()"
+          class="bg-green-700 hover:bg-green-600 text-white font-bold px-6 py-3 rounded-lg w-full">
+    Save Config
+  </button>
+</div>
+
+<script>
+function removeBand(btn) {
+  btn.closest('tr').remove();
+}
+
+function addBand() {
+  const tbody = document.getElementById('bands-body');
+  const row = document.createElement('tr');
+  row.className = 'band-row';
+  row.innerHTML = `
+    <td class="pr-4 pb-2"><input type="number" min="0" value="0" class="band-min w-28 bg-gray-800 border border-gray-600 rounded px-2 py-1 text-white focus:outline-none focus:border-green-500"></td>
+    <td class="pr-4 pb-2"><input type="number" min="1" value="1" class="band-inc w-28 bg-gray-800 border border-gray-600 rounded px-2 py-1 text-white focus:outline-none focus:border-green-500"></td>
+    <td class="pb-2"><button onclick="removeBand(this)" class="text-red-500 hover:text-red-300 text-xs">Remove</button></td>
+  `;
+  tbody.appendChild(row);
+}
+
+async function saveConfig() {
+  const bands = Array.from(document.querySelectorAll('.band-row')).map(row => ({
+    min_price: parseInt(row.querySelector('.band-min').value, 10),
+    increment: parseInt(row.querySelector('.band-inc').value, 10),
+  }));
+
+  const payload = {
+    silence_once_sec:  parseInt(document.getElementById('silence_once_sec').value,  10),
+    silence_twice_sec: parseInt(document.getElementById('silence_twice_sec').value, 10),
+    silence_sold_sec:  parseInt(document.getElementById('silence_sold_sec').value,  10),
+    opening_floor:     parseInt(document.getElementById('opening_floor').value,      10),
+    msg_going_once:    document.getElementById('msg_going_once').value,
+    msg_going_twice:   document.getElementById('msg_going_twice').value,
+    msg_sold:          document.getElementById('msg_sold').value,
+    bands,
+  };
+
+  try {
+    const r = await fetch('/api/config', { method: 'POST', body: JSON.stringify(payload), headers: {'Content-Type':'application/json'} });
+    const d = await r.json();
+    const msg = document.getElementById('save-msg');
+    const err = document.getElementById('err-msg');
+    if (d.ok) {
+      msg.textContent = 'Saved! Bot will pick up new config at the start of the next team.';
+      msg.classList.remove('hidden');
+      err.classList.add('hidden');
+      setTimeout(() => msg.classList.add('hidden'), 4000);
+    } else {
+      err.textContent = d.error || 'Save failed';
+      err.classList.remove('hidden');
+      msg.classList.add('hidden');
+    }
+  } catch(e) {
+    alert('Save failed: ' + e);
+  }
+}
+</script>
+{% endblock %}
