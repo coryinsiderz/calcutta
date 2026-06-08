@@ -42,10 +42,11 @@ def replace_increment_bands(bands: list[dict]):
     with get_conn() as conn:
         conn.execute("DELETE FROM increment_bands")
         if bands:
-            conn.executemany(
-                "INSERT INTO increment_bands (min_price, increment) VALUES (%s, %s)",
-                [(b["min_price"], b["increment"]) for b in bands],
-            )
+            with conn.cursor() as cur:
+                cur.executemany(
+                    "INSERT INTO increment_bands (min_price, increment) VALUES (%s, %s)",
+                    [(b["min_price"], b["increment"]) for b in bands],
+                )
 
 
 # ── Auction state ────────────────────────────────────────────────────────────

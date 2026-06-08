@@ -94,10 +94,11 @@ def seed_defaults():
 
         count = conn.execute("SELECT COUNT(*) FROM increment_bands").fetchone()[0]
         if count == 0:
-            conn.executemany(
-                "INSERT INTO increment_bands (min_price, increment) VALUES (%s, %s)",
-                [(0, 1), (50, 2), (100, 5), (200, 10)],
-            )
+            with conn.cursor() as cur:
+                cur.executemany(
+                    "INSERT INTO increment_bands (min_price, increment) VALUES (%s, %s)",
+                    [(0, 1), (50, 2), (100, 5), (200, 10)],
+                )
             logger.info("Seeded increment bands")
 
         count = conn.execute("SELECT COUNT(*) FROM teams").fetchone()[0]
@@ -105,10 +106,11 @@ def seed_defaults():
             from data.teams import TEAMS
             positions = list(range(1, len(TEAMS) + 1))
             random.shuffle(positions)
-            conn.executemany(
-                "INSERT INTO teams (name, flag, draw_position) VALUES (%s, %s, %s)",
-                [(t["name"], t["flag"], pos) for t, pos in zip(TEAMS, positions)],
-            )
+            with conn.cursor() as cur:
+                cur.executemany(
+                    "INSERT INTO teams (name, flag, draw_position) VALUES (%s, %s, %s)",
+                    [(t["name"], t["flag"], pos) for t, pos in zip(TEAMS, positions)],
+                )
             logger.info("Seeded %d teams", len(TEAMS))
 
     logger.info("Defaults seeded")
