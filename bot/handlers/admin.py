@@ -394,8 +394,22 @@ async def cmd_sold(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     team = matches[0]
+
+    # Resolve owner to a registered participant (registered names everywhere)
+    people = await asyncio.to_thread(queries.get_participants)
+    person = _best_participant(owner, people)
+    if not person:
+        roster = ", ".join(p["name"] for p in people) if people else "(nobody registered yet)"
+        await update.message.reply_text(
+            f"Couldn't match player '{owner}'. Registered: {roster}\nOr run: /register {owner}"
+        )
+        return
+    owner = person["name"]
+
     already = team["status"] == "sold"
-    await asyncio.to_thread(queries.mark_team_sold, team["id"], 0, owner, price)
+    await asyncio.to_thread(
+        queries.mark_team_sold, team["id"], person.get("telegram_user_id") or 0, owner, price
+    )
 
     info = await asyncio.to_thread(build_info_text)
     verb = "Updated" if already else "Sold"
