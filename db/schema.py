@@ -184,6 +184,17 @@ def seed_defaults():
                         "UPDATE participants SET name = %s, name_lower = %s WHERE id = %s",
                         (clean, clean.lower(), pid),
                     )
+
+        # Same cleanup for owner names baked into already-sold team rows
+        with conn.cursor() as cur:
+            cur.execute("SELECT id, sold_to_username FROM teams WHERE sold_to_username IS NOT NULL")
+            trows = cur.fetchall()
+        for tid, uname in trows:
+            clean = uname.strip("<>\"'@ ").strip()
+            if clean != uname:
+                conn.execute(
+                    "UPDATE teams SET sold_to_username = %s WHERE id = %s", (clean, tid)
+                )
         conn.execute(
             "INSERT INTO auction_state (id) VALUES (1) ON CONFLICT (id) DO NOTHING"
         )

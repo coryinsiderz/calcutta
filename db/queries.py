@@ -481,7 +481,7 @@ def get_live_state() -> dict:
             pot = cur.fetchone()["pot"]
 
             cur.execute(
-                "SELECT * FROM teams WHERE status = 'sold' ORDER BY sold_at DESC LIMIT 6"
+                "SELECT * FROM teams WHERE status = 'sold' ORDER BY sold_at DESC"
             )
             recent_sold = cur.fetchall()
 
