@@ -282,6 +282,46 @@ def get_payout_rules() -> list[dict]:
             return cur.fetchall()
 
 
+def register_participant(name: str, user_id: int | None = None) -> tuple[bool, str]:
+    """Returns (created, canonical_name). created=False if the name already existed."""
+    name = name.strip()
+    with get_conn() as conn:
+        with conn.cursor(row_factory=dict_row) as cur:
+            cur.execute("SELECT name FROM participants WHERE name_lower = %s", (name.lower(),))
+            existing = cur.fetchone()
+            if existing:
+                return False, existing["name"]
+            cur.execute(
+                "INSERT INTO participants (name, name_lower, telegram_user_id) VALUES (%s, %s, %s)",
+                (name, name.lower(), user_id),
+            )
+            return True, name
+
+
+def get_participants() -> list[dict]:
+    with get_conn() as conn:
+        with conn.cursor(row_factory=dict_row) as cur:
+            cur.execute("SELECT * FROM participants ORDER BY name")
+            return cur.fetchall()
+
+
+def find_participant(name: str) -> dict | None:
+    with get_conn() as conn:
+        with conn.cursor(row_factory=dict_row) as cur:
+            cur.execute(
+                "SELECT * FROM participants WHERE name_lower = %s", (name.strip().lower(),)
+            )
+            return cur.fetchone()
+
+
+def unregister_participant(name: str) -> bool:
+    with get_conn() as conn:
+        cur = conn.execute(
+            "DELETE FROM participants WHERE name_lower = %s", (name.strip().lower(),)
+        )
+        return cur.rowcount > 0
+
+
 def get_frozen() -> bool:
     with get_conn() as conn:
         row = conn.execute("SELECT frozen FROM auction_state WHERE id = 1").fetchone()

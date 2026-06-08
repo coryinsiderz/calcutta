@@ -1,11 +1,18 @@
 import asyncio
 import logging
+import unicodedata
 
 from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes
 
 import db.queries as queries
 from db.payouts import build_info_text
+
+
+def _norm(s: str) -> str:
+    """Lowercase + strip accents so 'curacao' matches 'Curaçao'."""
+    s = unicodedata.normalize("NFKD", s or "")
+    return "".join(c for c in s if not unicodedata.combining(c)).lower().strip()
 
 logger = logging.getLogger(__name__)
 
@@ -161,6 +168,130 @@ async def cmd_unfreeze(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Auction unfrozen. /reset is enabled again.")
 
 
+# ── Registration ──────────────────────────────────────────────────────────────
+
+async def cmd_register(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Anyone can register their name. Usage: /register <name>"""
+    name = " ".join(context.args).strip()
+    if not name:
+        await update.message.reply_text("Usage: /register <name>   e.g. /register Cory")
+        return
+    if len(name) > 40:
+        await update.message.reply_text("Name too long (max 40 chars).")
+        return
+    created, canonical = await asyncio.to_thread(
+        queries.register_participant, name, update.effective_user.id
+    )
+    if created:
+        await update.message.reply_text(f"Registered: {canonical}")
+    else:
+        await update.message.reply_text(f"'{canonical}' is already registered.")
+
+
+async def cmd_participants(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    people = await asyncio.to_thread(queries.get_participants)
+    if not people:
+        await update.message.reply_text("No one registered yet. Use /register <name>.")
+        return
+    lines = [f"{len(people)} registered:"]
+    lines += [p["name"] for p in people]
+    await update.message.reply_text("\n".join(lines))
+
+
+async def cmd_unregister(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not await _require_admin(update, context):
+        return
+    name = " ".join(context.args).strip()
+    if not name:
+        await update.message.reply_text("Usage: /unregister <name>")
+        return
+    ok = await asyncio.to_thread(queries.unregister_participant, name)
+    await update.message.reply_text(
+        f"Removed {name}." if ok else f"'{name}' wasn't registered."
+    )
+
+
+# ── /log (smart manual logging — order-independent via team + registry) ────────
+
+def _parse_log(tokens: list[str], teams: list[dict]):
+    """Return (team_dict, owner_str, price_int, error_str). Identifies the team
+    from the known 48 (any position), leaving the rest as the owner."""
+    if len(tokens) < 3:
+        return None, None, None, "Usage: /log <team> <owner> <price>  e.g. /log Brazil cory $120"
+
+    # Price = last token that looks numeric (with optional $ , )
+    price = None
+    price_idx = None
+    for i in range(len(tokens) - 1, -1, -1):
+        c = tokens[i].lstrip("$").replace(",", "")
+        if c.isdigit():
+            price, price_idx = int(c), i
+            break
+    if price is None:
+        return None, None, None, "No price found. e.g. /log Brazil cory $120"
+
+    rest = tokens[:price_idx] + tokens[price_idx + 1:]
+    if len(rest) < 2:
+        return None, None, None, "Need a team and an owner. e.g. /log Brazil cory $120"
+
+    name_to_team = {_norm(t["name"]): t for t in teams}
+
+    # 1) Exact contiguous team-name match (longest first), leaving >=1 token for owner
+    n = len(rest)
+    for length in range(n - 1, 0, -1):
+        for start in range(0, n - length + 1):
+            s = _norm(" ".join(rest[start:start + length]))
+            if s in name_to_team:
+                owner = " ".join(rest[:start] + rest[start + length:]).strip().lstrip("@")
+                if owner:
+                    return name_to_team[s], owner, price, None
+
+    # 2) Substring fallback: a single token uniquely identifying a team
+    for i, tok in enumerate(rest):
+        cands = [t for t in teams if _norm(tok) in _norm(t["name"])]
+        if len(cands) == 1:
+            owner = " ".join(rest[:i] + rest[i + 1:]).strip().lstrip("@")
+            if owner:
+                return cands[0], owner, price, None
+        elif len(cands) > 1:
+            names = ", ".join(c["name"] for c in cands[:6])
+            return None, None, None, f"'{tok}' matches multiple teams: {names}. Use the full name."
+
+    return None, None, None, f"Couldn't find a team in '{' '.join(rest)}'."
+
+
+async def cmd_log(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Log a sale, order-independent. Usage: /log <team> <owner> <price>"""
+    if not await _require_admin(update, context):
+        return
+
+    teams = await asyncio.to_thread(queries.get_all_teams)
+    team, owner_raw, price, error = _parse_log(context.args, teams)
+    if error:
+        await update.message.reply_text(error)
+        return
+
+    person = await asyncio.to_thread(queries.find_participant, owner_raw)
+    if not person:
+        await update.message.reply_text(
+            f"'{owner_raw}' isn't registered. Have them run:  /register {owner_raw}\n"
+            f"(or register for them, then re-run /log)"
+        )
+        return
+
+    owner = person["name"]
+    already = team["status"] == "sold"
+    await asyncio.to_thread(
+        queries.mark_team_sold, team["id"], person.get("telegram_user_id") or 0, owner, price
+    )
+
+    info = await asyncio.to_thread(build_info_text)
+    verb = "Updated" if already else "Logged"
+    await update.message.reply_text(
+        f"{verb}: {team['flag']} {team['name']} -> {owner} for ${price:,}\n\n{info}"
+    )
+
+
 # ── /sold (manual logging for a human-run auction) ────────────────────────────
 
 async def cmd_sold(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -186,9 +317,9 @@ async def cmd_sold(update: Update, context: ContextTypes.DEFAULT_TYPE):
     price = int(price_clean)
 
     teams = await asyncio.to_thread(queries.get_all_teams)
-    ql = team_q.lower()
-    exact = [t for t in teams if t["name"].lower() == ql]
-    matches = exact or [t for t in teams if ql in t["name"].lower()]
+    ql = _norm(team_q)
+    exact = [t for t in teams if _norm(t["name"]) == ql]
+    matches = exact or [t for t in teams if ql in _norm(t["name"])]
 
     if not matches:
         await update.message.reply_text(f"No team matches '{team_q}'.")
@@ -288,6 +419,10 @@ def register(app: Application, admin_ids: list[int]):
     app.add_handler(CommandHandler("undo", cmd_undo))
     app.add_handler(CommandHandler("correct", cmd_correct))
     app.add_handler(CommandHandler("shuffle", cmd_shuffle))
+    app.add_handler(CommandHandler("register", cmd_register))
+    app.add_handler(CommandHandler("participants", cmd_participants))
+    app.add_handler(CommandHandler("unregister", cmd_unregister))
+    app.add_handler(CommandHandler("log", cmd_log))
     app.add_handler(CommandHandler("sold", cmd_sold))
     app.add_handler(CommandHandler("remaining", cmd_remaining))
     app.add_handler(CommandHandler("reset", cmd_reset))

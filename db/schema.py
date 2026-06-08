@@ -90,6 +90,15 @@ CREATE TABLE IF NOT EXISTS snapshots (
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+-- Registered participants (owners). name_lower enforces case-insensitive uniqueness.
+CREATE TABLE IF NOT EXISTS participants (
+    id               SERIAL PRIMARY KEY,
+    name             TEXT NOT NULL,
+    name_lower       TEXT NOT NULL UNIQUE,
+    telegram_user_id BIGINT,
+    created_at       TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
 CREATE TABLE IF NOT EXISTS payout_rules (
     key   TEXT PRIMARY KEY,
     label TEXT NOT NULL,
