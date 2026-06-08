@@ -126,8 +126,12 @@ class AuctionEngine:
         self.timer.cancel()
         await self._advance_to_next_team()
 
-    async def reset(self):
-        """Full wipe — all bids/sales cleared, state back to idle, draw reshuffled."""
+    async def reset(self) -> bool:
+        """Full wipe — all bids/sales cleared, state back to idle, draw reshuffled.
+        Refused (returns False) if the auction is frozen."""
+        if await asyncio.to_thread(queries.get_frozen):
+            return False
+
         self.timer.cancel()
         if self._advance_task and not self._advance_task.done():
             self._advance_task.cancel()
@@ -141,6 +145,7 @@ class AuctionEngine:
         self.high_bidder_username = None
         self.bid_message_id = None
         self.silence_phase = "none"
+        return True
 
     async def undo_last_sold(self) -> tuple[bool, str]:
         last = await asyncio.to_thread(queries.get_last_sold_team)
@@ -464,12 +469,18 @@ class AuctionEngine:
                     )
 
             elif action == "reset":
-                await self.reset()
+                ok = await self.reset()
                 if self.chat_id:
-                    await self.bot.send_message(
-                        self.chat_id,
-                        "Auction reset by admin. All teams pending, draw reshuffled. Run /start to begin.",
-                    )
+                    if ok:
+                        await self.bot.send_message(
+                            self.chat_id,
+                            "Auction reset by admin. All teams pending, draw reshuffled. Run /start to begin.",
+                        )
+                    else:
+                        await self.bot.send_message(
+                            self.chat_id,
+                            "Reset refused — auction is FROZEN. Unfreeze first to reset.",
+                        )
 
             elif action == "reload_config":
                 self.config = await asyncio.to_thread(queries.get_auction_config) or {}

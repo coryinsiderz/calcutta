@@ -31,7 +31,9 @@ def index():
 
 @pages_bp.route("/standings")
 def standings_page():
-    return render_template("standings.html", data=compute_standings())
+    return render_template(
+        "standings.html", data=compute_standings(), frozen=queries.get_frozen()
+    )
 
 
 @pages_bp.route("/tournament")
@@ -68,6 +70,8 @@ def admin_page():
     all_teams = queries.get_all_teams()
     last_sold = queries.get_last_sold_team()
     pot = sum(t["sold_price"] or 0 for t in results)
+    frozen = queries.get_frozen()
+    snapshots = queries.list_snapshots()
     return render_template(
         "admin.html",
         state=state,
@@ -75,4 +79,6 @@ def admin_page():
         sold_teams=sold_teams,
         last_sold=last_sold,
         pot=pot,
+        frozen=frozen,
+        snapshots=snapshots,
     )

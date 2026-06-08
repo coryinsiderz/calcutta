@@ -120,11 +120,47 @@
     </div>
   </section>
 
+  <!-- Lock / backup -->
+  <section class="bg-gray-900 border border-gray-700 rounded-xl p-5">
+    <h2 class="text-gray-400 text-xs uppercase tracking-widest mb-3">Lock &amp; Backup</h2>
+    <div class="flex items-center gap-3 mb-4">
+      <span class="text-sm">Status:</span>
+      {% if frozen %}
+      <span class="px-2 py-1 rounded text-xs font-bold bg-blue-800 text-blue-200">FROZEN — reset locked</span>
+      <button onclick="setFreeze(false)" class="bg-gray-700 hover:bg-gray-600 text-white text-sm px-4 py-2 rounded">Unfreeze</button>
+      {% else %}
+      <span class="px-2 py-1 rounded text-xs font-bold bg-gray-700 text-gray-300">unlocked</span>
+      <button onclick="confirmFreeze()" class="bg-blue-700 hover:bg-blue-600 text-white text-sm px-4 py-2 rounded">Freeze results</button>
+      {% endif %}
+    </div>
+    <p class="text-gray-600 text-xs mb-4">
+      Freezing locks the results: <code class="bg-gray-800 px-1 rounded">/reset</code> is blocked (bot and web) until you unfreeze. Tournament progress can still be updated. Freezing also saves a snapshot.
+    </p>
+    <div class="flex gap-3 flex-wrap">
+      <button onclick="saveSnapshot()" class="bg-green-800 hover:bg-green-700 text-white text-sm px-4 py-2 rounded">Save snapshot now</button>
+      <a href="/api/backup.csv" class="bg-gray-700 hover:bg-gray-600 text-white text-sm px-4 py-2 rounded">Download CSV</a>
+    </div>
+
+    {% if snapshots %}
+    <div class="mt-4">
+      <h3 class="text-gray-500 text-xs uppercase tracking-widest mb-2">Snapshots (restore points)</h3>
+      <ul class="space-y-1 text-sm">
+        {% for s in snapshots %}
+        <li class="flex items-center gap-3">
+          <span class="text-gray-400 flex-1">{{ s.label or 'snapshot' }} — {{ s.created_at.strftime('%b %d %H:%M') }}</span>
+          <button onclick="restoreSnapshot({{ s.id }})" class="bg-yellow-800 hover:bg-yellow-700 text-white text-xs px-3 py-1 rounded">Restore</button>
+        </li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% endif %}
+  </section>
+
   <!-- Danger zone -->
   <section class="bg-gray-900 border border-red-900 rounded-xl p-5">
     <h2 class="text-red-500 text-xs uppercase tracking-widest mb-3">Danger Zone</h2>
     <p class="text-gray-400 text-sm mb-3">
-      Wipes all bids and sold teams, resets to idle, reshuffles the draw. Use this to clear test data before the real auction.
+      Wipes all bids and sold teams, resets to idle, reshuffles the draw. Use this to clear test data before the real auction. Blocked while frozen.
     </p>
     <button onclick="confirmReset()"
             class="bg-red-800 hover:bg-red-700 text-white text-sm px-4 py-2 rounded">
@@ -161,6 +197,43 @@ function confirmReset() {
   if (!confirm('WIPE the entire auction? All bids and sold teams will be deleted and the draw reshuffled. This cannot be undone.')) return;
   if (!confirm('Are you absolutely sure? This is irreversible.')) return;
   doAction('/api/admin/reset', 'Reset queued — auction wiped.');
+}
+
+function confirmFreeze() {
+  if (!confirm('Freeze the results? /reset will be blocked until you unfreeze. A snapshot will be saved.')) return;
+  setFreeze(true);
+}
+
+async function setFreeze(frozen) {
+  try {
+    const r = await fetch('/api/admin/freeze', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ frozen }),
+    });
+    const d = await r.json();
+    if (d.ok) { showMsg(frozen ? 'Frozen — reset is locked.' : 'Unfrozen.'); setTimeout(() => location.reload(), 800); }
+    else showMsg(d.error || 'Failed', false);
+  } catch(e) { showMsg(String(e), false); }
+}
+
+async function saveSnapshot() {
+  const label = prompt('Snapshot label (optional):', 'manual');
+  if (label === null) return;
+  try {
+    const r = await fetch('/api/admin/snapshot', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ label }),
+    });
+    const d = await r.json();
+    if (d.ok) { showMsg('Snapshot saved.'); setTimeout(() => location.reload(), 800); }
+    else showMsg(d.error || 'Failed', false);
+  } catch(e) { showMsg(String(e), false); }
+}
+
+function restoreSnapshot(id) {
+  if (!confirm('Restore this snapshot? It overwrites current owners, prices, and tournament progress with the saved copy.')) return;
+  doAction(`/api/admin/restore/${id}`, 'Snapshot restored.');
+  setTimeout(() => location.reload(), 1200);
 }
 
 async function setHighBid() {

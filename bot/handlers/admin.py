@@ -131,10 +131,33 @@ async def cmd_reset(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     engine = context.bot_data["engine"]
-    await engine.reset()
+    ok = await engine.reset()
+    if ok:
+        await update.message.reply_text(
+            "Auction reset. All 48 teams pending, draw reshuffled, status idle.\nRun /start to begin."
+        )
+    else:
+        await update.message.reply_text(
+            "Reset refused — auction is FROZEN. Run /unfreeze first if you really mean it."
+        )
+
+
+async def cmd_freeze(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not await _require_admin(update, context):
+        return
+    await asyncio.to_thread(queries.set_frozen, True)
+    await asyncio.to_thread(queries.save_snapshot, "auto-freeze")
     await update.message.reply_text(
-        "Auction reset. All 48 teams pending, draw reshuffled, status idle.\nRun /start to begin."
+        "Auction FROZEN. Results are locked and /reset is blocked. A snapshot was saved.\n"
+        "Tournament progress can still be updated. Use /unfreeze to unlock."
     )
+
+
+async def cmd_unfreeze(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not await _require_admin(update, context):
+        return
+    await asyncio.to_thread(queries.set_frozen, False)
+    await update.message.reply_text("Auction unfrozen. /reset is enabled again.")
 
 
 # ── /shuffle ──────────────────────────────────────────────────────────────────
@@ -179,14 +202,18 @@ async def cmd_status(update: Update, context: ContextTypes.DEFAULT_TYPE):
     sold = await asyncio.to_thread(queries.count_sold_teams)
     pending = await asyncio.to_thread(queries.count_pending_teams)
 
+    frozen = await asyncio.to_thread(queries.get_frozen)
+
     team_info = ""
     if engine.current_team:
         team_info = f"\nCurrent: {engine.current_team['flag']} {engine.current_team['name']}"
         if engine.high_bid:
             team_info += f"  ${engine.high_bid:,} @{engine.high_bidder_username}"
 
+    frozen_line = "\nFROZEN (reset locked)" if frozen else ""
+
     await update.message.reply_text(
-        f"Status: *{engine.status}*{team_info}\n"
+        f"Status: *{engine.status}*{frozen_line}{team_info}\n"
         f"Sold: {sold}  |  Remaining: {pending}",
         parse_mode="Markdown",
     )
@@ -201,5 +228,7 @@ def register(app: Application, admin_ids: list[int]):
     app.add_handler(CommandHandler("correct", cmd_correct))
     app.add_handler(CommandHandler("shuffle", cmd_shuffle))
     app.add_handler(CommandHandler("reset", cmd_reset))
+    app.add_handler(CommandHandler("freeze", cmd_freeze))
+    app.add_handler(CommandHandler("unfreeze", cmd_unfreeze))
     app.add_handler(CommandHandler("config", cmd_config))
     app.add_handler(CommandHandler("status", cmd_status))

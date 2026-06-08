@@ -79,6 +79,17 @@ CREATE TABLE IF NOT EXISTS pending_overrides (
 ALTER TABLE teams ADD COLUMN IF NOT EXISTS ko_stage  INT     NOT NULL DEFAULT 0;
 ALTER TABLE teams ADD COLUMN IF NOT EXISTS won_group BOOLEAN NOT NULL DEFAULT false;
 
+-- Freeze lock: when true, /reset is refused (protects results during the tournament)
+ALTER TABLE auction_state ADD COLUMN IF NOT EXISTS frozen BOOLEAN NOT NULL DEFAULT false;
+
+-- Saved snapshots (restore points) of the full results + tournament progress
+CREATE TABLE IF NOT EXISTS snapshots (
+    id         SERIAL PRIMARY KEY,
+    label      TEXT,
+    payload    JSONB NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
 CREATE TABLE IF NOT EXISTS payout_rules (
     key   TEXT PRIMARY KEY,
     label TEXT NOT NULL,

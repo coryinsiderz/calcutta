@@ -282,6 +282,75 @@ def get_payout_rules() -> list[dict]:
             return cur.fetchall()
 
 
+def get_frozen() -> bool:
+    with get_conn() as conn:
+        row = conn.execute("SELECT frozen FROM auction_state WHERE id = 1").fetchone()
+        return bool(row[0]) if row else False
+
+
+def set_frozen(frozen: bool):
+    with get_conn() as conn:
+        conn.execute(
+            "UPDATE auction_state SET frozen = %s, updated_at = now() WHERE id = 1",
+            (frozen,),
+        )
+
+
+def save_snapshot(label: str) -> int:
+    """Save a restore point of all teams + side awards. Returns snapshot id."""
+    with get_conn() as conn:
+        with conn.cursor(row_factory=dict_row) as cur:
+            cur.execute(
+                """SELECT id, name, status, sold_to_user_id, sold_to_username,
+                          sold_price, ko_stage, won_group
+                   FROM teams ORDER BY id"""
+            )
+            teams = cur.fetchall()
+            cur.execute("SELECT key, team_id FROM side_awards")
+            sides = cur.fetchall()
+            payload = json.dumps({"teams": teams, "side_awards": sides}, default=str)
+            cur.execute(
+                "INSERT INTO snapshots (label, payload) VALUES (%s, %s) RETURNING id",
+                (label, payload),
+            )
+            return cur.fetchone()["id"]
+
+
+def list_snapshots() -> list[dict]:
+    with get_conn() as conn:
+        with conn.cursor(row_factory=dict_row) as cur:
+            cur.execute(
+                "SELECT id, label, created_at FROM snapshots ORDER BY created_at DESC"
+            )
+            return cur.fetchall()
+
+
+def restore_snapshot(snap_id: int) -> bool:
+    with get_conn() as conn:
+        with conn.cursor(row_factory=dict_row) as cur:
+            cur.execute("SELECT payload FROM snapshots WHERE id = %s", (snap_id,))
+            row = cur.fetchone()
+            if not row:
+                return False
+            payload = row["payload"]  # JSONB -> dict
+            for t in payload.get("teams", []):
+                cur.execute(
+                    """UPDATE teams SET status = %s, sold_to_user_id = %s,
+                       sold_to_username = %s, sold_price = %s, ko_stage = %s, won_group = %s
+                       WHERE id = %s""",
+                    (
+                        t["status"], t["sold_to_user_id"], t["sold_to_username"],
+                        t["sold_price"], t["ko_stage"], t["won_group"], t["id"],
+                    ),
+                )
+            for s in payload.get("side_awards", []):
+                cur.execute(
+                    "UPDATE side_awards SET team_id = %s WHERE key = %s",
+                    (s["team_id"], s["key"]),
+                )
+    return True
+
+
 def reset_auction():
     """Wipe all bids and sales, reset state to idle, reshuffle the draw order."""
     with get_conn() as conn:
@@ -375,6 +444,7 @@ def get_live_state() -> dict:
 
         return {
             "status": state["status"] if state else "idle",
+            "frozen": bool(state["frozen"]) if state else False,
             "current_team": (
                 {"id": current_team["id"], "name": current_team["name"], "flag": current_team["flag"]}
                 if current_team

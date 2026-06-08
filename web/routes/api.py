@@ -87,6 +87,52 @@ def reset():
     return _queue("reset")
 
 
+@api_bp.route("/admin/freeze", methods=["POST"])
+def freeze():
+    data = request.get_json(silent=True) or {}
+    frozen = bool(data.get("frozen", True))
+    queries.set_frozen(frozen)
+    if frozen:
+        queries.save_snapshot("auto-freeze")
+    return jsonify({"ok": True, "frozen": frozen})
+
+
+@api_bp.route("/admin/snapshot", methods=["POST"])
+def snapshot():
+    data = request.get_json(silent=True) or {}
+    label = (data.get("label") or "manual").strip()[:80]
+    sid = queries.save_snapshot(label)
+    return jsonify({"ok": True, "id": sid})
+
+
+@api_bp.route("/admin/restore/<int:snap_id>", methods=["POST"])
+def restore(snap_id):
+    ok = queries.restore_snapshot(snap_id)
+    if not ok:
+        return jsonify({"ok": False, "error": "snapshot not found"}), 404
+    queries.queue_override("reload_state")
+    return jsonify({"ok": True})
+
+
+@api_bp.route("/backup.csv")
+def backup_csv():
+    from flask import Response
+    data = compute_standings()
+    rows = ["team,owner,price,stage,won_group,payout"]
+    for t in data["teams"]:
+        name = (t["name"] or "").replace(",", " ")
+        owner = (t["owner"] or "")
+        rows.append(
+            f"{name},{owner},{t['price']},{t['stage_label']},{int(t['won_group'])},{t['payout']}"
+        )
+    csv = "\n".join(rows)
+    return Response(
+        csv,
+        mimetype="text/csv",
+        headers={"Content-Disposition": "attachment; filename=calcutta_results.csv"},
+    )
+
+
 @api_bp.route("/admin/team/<int:team_id>", methods=["POST"])
 def update_team(team_id):
     data = request.get_json(force=True)
