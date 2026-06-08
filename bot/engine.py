@@ -67,33 +67,42 @@ class AuctionEngine:
             )
 
     async def resume_after_restart(self):
-        """Re-announce current team after a worker restart."""
+        """Re-announce current team + info after a worker restart."""
         if self.status != "running" or not self.chat_id or not self.current_team:
             return
-        team = self.current_team
+        await self._announce_resume("Bot restarted, resuming — ")
+
+    async def _announce_resume(self, prefix: str):
+        """Re-post the running info, then the current team + high bid (keyboard last)."""
+        if not self.chat_id:
+            return
         try:
-            await self.bot.send_message(
-                self.chat_id,
-                f"Bot restarted — resuming auction.\n\n"
-                f"{team['flag']} {team['name'].upper()}\n"
-                + (
-                    f"Current high: ${self.high_bid:,} — {self.high_bidder_username}"
-                    if self.high_bid
-                    else f"Opening bid: /bid <amount> (min ${self.config.get('opening_floor', 1)})"
-                ),
-            )
+            info_text = await asyncio.to_thread(build_info_text)
+            await self.bot.send_message(self.chat_id, info_text)
+
+            team = self.current_team
+            if not team:
+                return
             if self.high_bid:
                 keyboard = build_bid_keyboard(self.high_bid, team["id"], self.increment_bands)
                 msg = await self.bot.send_message(
                     self.chat_id,
+                    f"{prefix}{team['flag']} {team['name'].upper()}\n"
                     f"${self.high_bid:,} — {self.high_bidder_username}",
                     reply_markup=keyboard,
                 )
                 self.bid_message_id = msg.message_id
                 await asyncio.to_thread(queries.set_bid_message_id, msg.message_id)
-                self.timer.reset()
+                if self.status == "running":
+                    self.timer.reset()
+            else:
+                await self.bot.send_message(
+                    self.chat_id,
+                    f"{prefix}{team['flag']} {team['name'].upper()}\n"
+                    f"Opening bid: /bid <amount> (min ${self.config.get('opening_floor', 1)})",
+                )
         except Exception:
-            logger.exception("Failed to resume auction announcement")
+            logger.exception("Failed to announce resume")
 
     # ── Public commands ───────────────────────────────────────────────────────
 
@@ -119,8 +128,7 @@ class AuctionEngine:
     async def resume(self):
         self.status = "running"
         await asyncio.to_thread(queries.set_auction_status, "running")
-        if self.high_bid:
-            self.timer.reset()
+        await self._announce_resume("Resumed — ")
 
     async def next_team(self):
         """Admin-triggered manual advance."""

@@ -68,8 +68,7 @@ async def cmd_resume(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if engine.status != "paused":
         await update.message.reply_text(f"Can't resume — status is '{engine.status}'.")
         return
-    await engine.resume()
-    await update.message.reply_text("Auction resumed.")
+    await engine.resume()  # re-posts info + current team/bid
 
 
 # ── /next ─────────────────────────────────────────────────────────────────────
